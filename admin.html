@@ -16,22 +16,23 @@
     <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose">admin</span></div>
   </div>
   <nav class="hotbar outset">
-    <a href="feed.html">📗 Feed</a>
-    <a href="review.html">🗃️ Drafts</a>
-    <a href="admin.html" class="active">🛠️ Admin</a>
+    <a href="feed.html" data-i18n="nav_feed">Feed</a>
+    <a href="review.html" data-i18n="nav_drafts">Drafts</a>
+    <a href="admin.html" class="active" data-i18n="nav_admin">Admin</a>
   </nav>
   <div style="display:flex; align-items:center; gap:12px;">
-    <div class="identity" id="identity-toggle" title="Log out">
+    <button class="mc-chip lang-toggle">中文</button>
+    <div class="identity" id="identity-toggle" data-i18n-title="logout_title" title="Log out">
       <div class="head" id="identity-head">?</div>
     </div>
   </div>
 </header>
 
 <main>
-  <div class="section-title pixel-font">Invite codes</div>
-  <div class="section-sub">Generate a code so a new person can register. Each code works once.</div>
+  <div class="section-title pixel-font" data-i18n="admin_section_title">Invite codes</div>
+  <div class="section-sub" data-i18n="admin_section_sub">Generate a code so a new person can register. Each code works once.</div>
   <div id="error-area"></div>
-  <button class="btn btn-submit" onclick="generateCode()" style="margin-bottom:18px;">+ Generate invite code</button>
+  <button class="btn btn-submit" data-i18n="btn_generate" onclick="generateCode()" style="margin-bottom:18px;">+ Generate invite code</button>
   <div id="invite-list"></div>
 </main>
 
@@ -46,13 +47,13 @@ async function loadInvites() {
     const rows = await api("/api/invite-codes");
     const list = document.getElementById("invite-list");
     if (rows.length === 0) {
-      list.innerHTML = `<div class="empty-state">No invite codes yet</div>`;
+      list.innerHTML = `<div class="empty-state">${t("empty_invites")}</div>`;
       return;
     }
     list.innerHTML = rows.map(r => `
       <div class="invite-row">
         <code>${r.code}</code>
-        ${r.used_at ? `<span class="used">used by ${r.used_by_username}</span>` : `<span>unused</span>`}
+        ${r.used_at ? `<span class="used">${t("used_by", { name: r.used_by_username })}</span>` : `<span>${t("unused")}</span>`}
       </div>
     `).join("");
   } catch (e) {
@@ -60,20 +61,22 @@ async function loadInvites() {
   }
 }
 
+function onLangChanged() { loadInvites(); }
+
 async function generateCode() {
   try {
     const { code } = await api("/api/invite-codes", { method: "POST" });
     await loadInvites();
-    prompt("New invite code (copy it and send to the person you're inviting):", code);
+    prompt(t("prompt_new_code"), code);
   } catch (e) {
-    alert("Failed: " + e.message);
+    alert(t("alert_failed") + e.message);
   }
 }
 
 initAuth().then(me => {
   if (!me) return;
   if (me.role !== "admin") {
-    document.querySelector("main").innerHTML = `<div class="empty-state">Only admins can see this page.</div>`;
+    document.querySelector("main").innerHTML = `<div class="empty-state">${t("admin_only")}</div>`;
     return;
   }
   loadInvites();

@@ -12,40 +12,44 @@
 
 <div class="auth-wrap">
   <div class="auth-card">
+    <div style="text-align:right; margin-bottom:8px;"><button class="mc-chip lang-toggle">中文</button></div>
     <h1 class="site-name pixel-font">Ourfeed</h1>
-    <div class="sub" id="mode-hint">a shared feed for the people you trust</div>
+    <div class="sub" id="mode-hint"></div>
 
     <div id="invite-field">
-      <label>Invite code</label>
+      <label data-i18n="label_invite">Invite code</label>
       <input type="text" id="invite_code">
     </div>
-    <label>Username</label>
-    <input type="text" id="username" autocomplete="username" placeholder="3-20 letters/numbers/_/-">
-    <label>Display name</label>
-    <input type="text" id="display_name" placeholder="Optional, defaults to username">
-    <label>Password</label>
-    <input type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters">
+    <label data-i18n="label_username">Username</label>
+    <input type="text" id="username" autocomplete="username" data-i18n-placeholder="username_placeholder" placeholder="3-20 letters/numbers/_/-">
+    <label data-i18n="label_display_name">Display name</label>
+    <input type="text" id="display_name" data-i18n-placeholder="display_name_placeholder" placeholder="Optional, defaults to username">
+    <label data-i18n="label_password">Password</label>
+    <input type="password" id="password" autocomplete="new-password" data-i18n-placeholder="password_placeholder" placeholder="At least 8 characters">
 
     <div class="auth-error" id="error"></div>
 
-    <button class="btn btn-submit" onclick="submitRegister()">Create account</button>
-    <div class="switch-link">Already have an account? <a href="login.html">Log in</a></div>
+    <button class="btn btn-submit" data-i18n="btn_create_account" onclick="submitRegister()">Create account</button>
+    <div class="switch-link"><span data-i18n="already_have">Already have an account?</span> <a href="login.html" data-i18n="login_link">Log in</a></div>
   </div>
 </div>
 
+<script src="ourfeed-common.js"></script>
 <script>
 let bootstrap = false;
 
+function renderModeHint() {
+  document.getElementById("mode-hint").textContent = bootstrap ? t("register_bootstrap_hint") : (OURFEED_CONFIG && (typeof OURFEED_CONFIG.tagline === "string" ? OURFEED_CONFIG.tagline : (OURFEED_CONFIG.tagline[LANG] || OURFEED_CONFIG.tagline.en))) || "";
+}
+
 async function boot() {
   const cfg = await (await fetch("/api/config")).json();
+  OURFEED_CONFIG = cfg;
   document.querySelector(".site-name").textContent = cfg.site_name;
   bootstrap = cfg.bootstrap;
-  if (bootstrap) {
-    document.getElementById("invite-field").style.display = "none";
-    document.getElementById("mode-hint").textContent = "No account exists yet — you'll become the admin.";
-  } else {
-    document.getElementById("mode-hint").textContent = cfg.tagline || "";
-  }
+  initI18n();
+  document.getElementById("invite-field").style.display = bootstrap ? "none" : "";
+  renderModeHint();
 }
 
 function showError(msg) {
@@ -59,8 +63,8 @@ async function submitRegister() {
   const username = document.getElementById("username").value.trim();
   const display_name = document.getElementById("display_name").value.trim();
   const password = document.getElementById("password").value;
-  if (!username || !password) { showError("Username and password are required"); return; }
-  if (!bootstrap && !invite_code) { showError("Invite code is required"); return; }
+  if (!username || !password) { showError(t("err_required")); return; }
+  if (!bootstrap && !invite_code) { showError(t("err_invite_required")); return; }
   try {
     const res = await fetch("/api/register", {
       method: "POST",
@@ -68,12 +72,14 @@ async function submitRegister() {
       body: JSON.stringify({ invite_code, username, display_name, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Registration failed");
+    if (!res.ok) throw new Error(data.error || t("err_register_failed"));
     location.href = "feed.html";
   } catch (e) {
     showError(e.message);
   }
 }
+
+function onLangChanged() { renderModeHint(); }
 
 boot();
 </script>

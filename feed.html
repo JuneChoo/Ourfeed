@@ -13,23 +13,25 @@
 <header>
   <div class="logo">
     <div class="block-icon">⛏️</div>
-    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose">a shared feed for the people you trust</span></div>
+    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose tagline"></span></div>
   </div>
   <nav class="hotbar outset">
-    <a href="feed.html" class="active">📗 Feed</a>
-    <a href="review.html">🗃️ Drafts</a>
+    <a href="feed.html" class="active" data-i18n="nav_feed">Feed</a>
+    <a href="review.html" data-i18n="nav_drafts">Drafts</a>
+    <a href="admin.html" data-i18n="nav_admin" class="admin-only-nav" style="display:none;">Admin</a>
   </nav>
   <div style="display:flex; align-items:center; gap:12px;">
-    <div class="stat-badge prose" id="stat-badge">0 shared</div>
-    <div class="identity" id="identity-toggle" title="Log out">
+    <button class="mc-chip lang-toggle" id="lang-toggle-btn">中文</button>
+    <div class="stat-badge prose" id="stat-badge"></div>
+    <div class="identity" id="identity-toggle" data-i18n-title="logout_title" title="Log out">
       <div class="head" id="identity-head">?</div>
     </div>
   </div>
 </header>
 
 <main>
-  <div class="section-title pixel-font">Feed</div>
-  <div class="section-sub">Shared on purpose · tap a post to read the whole thing</div>
+  <div class="section-title pixel-font" data-i18n="feed_section_title">Feed</div>
+  <div class="section-sub" data-i18n="feed_section_sub">Shared on purpose · tap a post to read the whole thing</div>
   <div class="channel-tabs" id="channel-tabs"></div>
   <div id="error-area"></div>
   <div id="feed"></div>
@@ -40,17 +42,17 @@
 <!-- 新建条目 -->
 <div class="modal-overlay" id="composer-modal">
   <div class="modal">
-    <h2 class="pixel-font">Share something</h2>
-    <label>Tag it (pick at least one)</label>
+    <h2 class="pixel-font" data-i18n="composer_title">Share something</h2>
+    <label data-i18n="composer_channel_label">Tag it (pick at least one)</label>
     <div class="channel-select" id="composer-channel-select"></div>
-    <label>Title</label>
-    <input type="text" id="composer-title" maxlength="80" placeholder="One line title">
-    <label>Content</label>
-    <textarea id="composer-content" placeholder="Future you (or them) will thank you for the detail"></textarea>
-    <div class="modal-hint">This goes into your drafts first. Publish it from "Drafts" when you're ready.</div>
+    <label data-i18n="composer_title_label">Title</label>
+    <input type="text" id="composer-title" maxlength="80" data-i18n-placeholder="composer_title_placeholder" placeholder="One line title">
+    <label data-i18n="composer_content_label">Content</label>
+    <textarea id="composer-content" data-i18n-placeholder="composer_content_placeholder" placeholder="Future you (or them) will thank you for the detail"></textarea>
+    <div class="modal-hint" data-i18n="composer_hint">This goes into your drafts first. Publish it from "Drafts" when you're ready.</div>
     <div class="modal-actions">
-      <button class="btn btn-cancel" onclick="closeComposer()">Cancel</button>
-      <button class="btn btn-submit" onclick="submitComposer()">Save draft</button>
+      <button class="btn btn-cancel" data-i18n="btn_cancel" onclick="closeComposer()">Cancel</button>
+      <button class="btn btn-submit" data-i18n="btn_save_draft" onclick="submitComposer()">Save draft</button>
     </div>
   </div>
 </div>
@@ -58,14 +60,14 @@
 <!-- 回应 -->
 <div class="modal-overlay" id="reply-modal">
   <div class="modal">
-    <h2 class="pixel-font">Reply</h2>
+    <h2 class="pixel-font" data-i18n="reply_title">Reply</h2>
     <input type="hidden" id="reply-parent-id">
-    <label>Your reply</label>
-    <textarea id="reply-content" placeholder="Add on, dig deeper, or push back"></textarea>
-    <div class="modal-hint">Replies are written live, so they publish immediately (no draft review).</div>
+    <label data-i18n="reply_content_label">Your reply</label>
+    <textarea id="reply-content" data-i18n-placeholder="reply_content_placeholder" placeholder="Add on, dig deeper, or push back"></textarea>
+    <div class="modal-hint" data-i18n="reply_hint">Replies are written live, so they publish immediately (no draft review).</div>
     <div class="modal-actions">
-      <button class="btn btn-cancel" onclick="closeReply()">Cancel</button>
-      <button class="btn btn-submit" onclick="submitReply()">Post</button>
+      <button class="btn btn-cancel" data-i18n="btn_cancel" onclick="closeReply()">Cancel</button>
+      <button class="btn btn-submit" data-i18n="btn_post" onclick="submitReply()">Post</button>
     </div>
   </div>
 </div>
@@ -73,15 +75,15 @@
 <!-- 编辑 -->
 <div class="modal-overlay" id="edit-modal">
   <div class="modal">
-    <h2 class="pixel-font">Edit</h2>
+    <h2 class="pixel-font" data-i18n="edit_modal_title">Edit</h2>
     <input type="hidden" id="edit-id">
-    <label>Title</label>
+    <label data-i18n="edit_label_title">Title</label>
     <input type="text" id="edit-title" maxlength="80">
-    <label>Content</label>
+    <label data-i18n="edit_label_content">Content</label>
     <textarea id="edit-content"></textarea>
     <div class="modal-actions">
-      <button class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
-      <button class="btn btn-submit" onclick="submitEdit()">Save</button>
+      <button class="btn btn-cancel" data-i18n="btn_cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-submit" data-i18n="btn_save" onclick="submitEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -89,7 +91,7 @@
 <div class="toast" id="toast">
   <div class="toast-icon" id="toast-icon">📝</div>
   <div class="toast-text">
-    <div class="t1 pixel-font">DRAFT SAVED</div>
+    <div class="t1 pixel-font" data-i18n="toast_draft_saved_title">DRAFT SAVED</div>
     <div class="t2" id="toast-msg">Saved to drafts</div>
   </div>
 </div>
@@ -101,15 +103,16 @@ let currentChannel = "";
 
 function showError(msg) {
   document.getElementById("error-area").innerHTML =
-    `<div class="error-banner">Can't reach the server: ${msg}<br>Check that ourfeed.py is running.</div>`;
+    `<div class="error-banner">${t("err_prefix")}${msg}<br>${t("err_suffix")}</div>`;
 }
 function clearError() { document.getElementById("error-area").innerHTML = ""; }
 
 function renderChannelTabs() {
   const tabs = document.getElementById("channel-tabs");
-  const all = `<button class="active" data-channel="" onclick="switchChannel('', this)">All</button>`;
+  const active = currentChannel;
+  const all = `<button class="${active === "" ? "active" : ""}" data-channel="" onclick="switchChannel('', this)" data-i18n="tab_all">${t("tab_all")}</button>`;
   const rest = OURFEED_CONFIG.channels.map(c =>
-    `<button data-channel="${c.id}" onclick="switchChannel('${c.id}', this)">${c.icon || ""} ${c.label}</button>`
+    `<button class="${active === c.id ? "active" : ""}" data-channel="${c.id}" onclick="switchChannel('${c.id}', this)">${c.icon || ""} ${channelLabel(c)}</button>`
   ).join("");
   tabs.innerHTML = all + rest;
 }
@@ -117,30 +120,30 @@ function renderChannelTabs() {
 function renderComposerChannels() {
   const container = document.getElementById("composer-channel-select");
   container.innerHTML = OURFEED_CONFIG.channels.map((c, i) =>
-    `<label class="${i === 0 ? "checked" : ""}"><input type="checkbox" name="composer-channel" value="${c.id}" ${i === 0 ? "checked" : ""}> ${c.icon || ""} ${c.label}</label>`
+    `<label class="${i === 0 ? "checked" : ""}"><input type="checkbox" name="composer-channel" value="${c.id}" ${i === 0 ? "checked" : ""}> ${c.icon || ""} ${channelLabel(c)}</label>`
   ).join("");
 }
 
 function cardHtml(entry, isReply) {
   const isNew = lastVisit && entry.shared_at && entry.shared_at > lastVisit;
   const isMine = ME && entry.author === ME.username;
-  const editedTag = entry.edited_at ? `<span class="edited-tag">edited</span>` : "";
+  const editedTag = entry.edited_at ? `<span class="edited-tag">${t("edited_tag")}</span>` : "";
   const ownerActions = isMine
-    ? `<button class="mc-chip" onclick="openEditModal(${entry.id})">✏️ Edit</button>
-       ${isReply ? "" : `<button class="mc-chip danger" onclick="deleteEntry(${entry.id})">🗑 Delete</button>`}`
+    ? `<button class="mc-chip" onclick="openEditModal(${entry.id})">${t("btn_edit")}</button>
+       ${isReply ? "" : `<button class="mc-chip danger" onclick="deleteEntry(${entry.id})">${t("btn_delete")}</button>`}`
     : "";
   const actions = `
     <div class="card-actions">
-      ${isReply ? "" : `<button class="mc-chip" onclick="openReply(${entry.id})">💬 Reply</button>`}
+      ${isReply ? "" : `<button class="mc-chip" onclick="openReply(${entry.id})">${t("btn_reply")}</button>`}
       ${ownerActions}
     </div>`;
   return `
     <div class="card ${isReply ? "reply" : ""}">
       <div class="card-top">
         <div class="card-head" style="--user-color:${entry.author_avatar_color}">${(entry.author_display_name || "?").slice(0,1).toUpperCase()}</div>
-        <div class="card-name">${escapeHtml(entry.author_display_name)}${isReply ? " · reply" : ""}</div>
+        <div class="card-name">${escapeHtml(entry.author_display_name)}${isReply ? t("reply_suffix") : ""}</div>
         ${isReply ? "" : channelTagsHtml(entry, isMine)}
-        ${isNew ? '<span class="new-tag">NEW</span>' : ""}
+        ${isNew ? `<span class="new-tag">${t("new_tag")}</span>` : ""}
         ${editedTag}
         <div class="card-time">${formatRelativeTime(entry.shared_at || entry.created_at)}</div>
       </div>
@@ -151,6 +154,7 @@ function cardHtml(entry, isReply) {
 }
 
 function onEntryChanged() { loadFeed(); }
+function onLangChanged() { renderChannelTabs(); loadFeed(); }
 
 function switchChannel(channel, btn) {
   currentChannel = channel;
@@ -170,11 +174,11 @@ async function loadFeed() {
     return;
   }
 
-  document.getElementById("stat-badge").textContent = `${entries.length} shared`;
+  document.getElementById("stat-badge").textContent = t("stat_shared", { n: entries.length });
 
   const feed = document.getElementById("feed");
   if (entries.length === 0) {
-    feed.innerHTML = `<div class="empty-state"><span class="pixel-font">Nothing here yet</span>Tap "+" to share the first thing</div>`;
+    feed.innerHTML = `<div class="empty-state"><span class="pixel-font">${t("empty_feed_title")}</span>${t("empty_feed_body")}</div>`;
     localStorage.setItem("of_last_visit", new Date().toISOString());
     return;
   }
@@ -222,8 +226,8 @@ async function submitComposer() {
   const title = document.getElementById("composer-title").value.trim();
   const content = document.getElementById("composer-content").value.trim();
   const channels = Array.from(document.querySelectorAll('input[name="composer-channel"]:checked')).map(i => i.value);
-  if (!title || !content) { alert("Title and content are both required"); return; }
-  if (channels.length === 0) { alert("Pick at least one tag"); return; }
+  if (!title || !content) { alert(t("alert_title_content_required")); return; }
+  if (channels.length === 0) { alert(t("alert_pick_tag")); return; }
   try {
     await api("/api/entries", {
       method: "POST",
@@ -231,9 +235,9 @@ async function submitComposer() {
       body: JSON.stringify({ title, content, channels }),
     });
     closeComposer();
-    showToast("Saved to drafts, publish it from Drafts", "📝");
+    showToast(t("toast_draft_saved2"), "📝");
   } catch (e) {
-    alert("Save failed: " + e.message);
+    alert(t("alert_save_failed2") + e.message);
   }
 }
 
@@ -248,7 +252,7 @@ function closeReply() { document.getElementById("reply-modal").classList.remove(
 async function submitReply() {
   const parentId = document.getElementById("reply-parent-id").value;
   const content = document.getElementById("reply-content").value.trim();
-  if (!content) { alert("Write something first"); return; }
+  if (!content) { alert(t("alert_write_something")); return; }
   try {
     await api(`/api/entries/${parentId}/respond`, {
       method: "POST",
@@ -256,10 +260,10 @@ async function submitReply() {
       body: JSON.stringify({ title: "", content }),
     });
     closeReply();
-    showToast("Reply posted", "💬");
+    showToast(t("toast_reply_posted"), "💬");
     loadFeed();
   } catch (e) {
-    alert("Post failed: " + e.message);
+    alert(t("alert_post_failed") + e.message);
   }
 }
 

@@ -86,6 +86,9 @@ def _load_config():
         cfg = json.load(f)
     if not cfg.get("channels"):
         raise SystemExit("config.json 里 channels 不能为空，至少配一个标签")
+    tagline = cfg.get("tagline", "")
+    if isinstance(tagline, str):
+        cfg["tagline"] = {"en": tagline, "zh": tagline}
     return cfg
 
 

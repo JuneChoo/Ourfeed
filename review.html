@@ -42,27 +42,29 @@
 <header>
   <div class="logo">
     <div class="block-icon">⛏️</div>
-    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose">a shared feed for the people you trust</span></div>
+    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose tagline"></span></div>
   </div>
   <nav class="hotbar outset">
-    <a href="feed.html">📗 Feed</a>
-    <a href="review.html" class="active">🗃️ Drafts</a>
+    <a href="feed.html" data-i18n="nav_feed">Feed</a>
+    <a href="review.html" class="active" data-i18n="nav_drafts">Drafts</a>
+    <a href="admin.html" data-i18n="nav_admin" class="admin-only-nav" style="display:none;">Admin</a>
   </nav>
   <div style="display:flex; align-items:center; gap:12px;">
-    <div class="stat-badge prose" id="stat-badge">0 drafts</div>
-    <div class="identity" id="identity-toggle" title="Log out">
+    <button class="mc-chip lang-toggle">中文</button>
+    <div class="stat-badge prose" id="stat-badge"></div>
+    <div class="identity" id="identity-toggle" data-i18n-title="logout_title" title="Log out">
       <div class="head" id="identity-head">?</div>
     </div>
   </div>
 </header>
 
 <main>
-  <div class="section-title pixel-font">Drafts</div>
-  <div class="section-sub">Opt-out review: leave it alone and it gets published</div>
+  <div class="section-title pixel-font" data-i18n="drafts_section_title">Drafts</div>
+  <div class="section-sub" data-i18n="drafts_section_sub">Opt-out review: leave it alone and it gets published</div>
   <div class="rule-box">
-    <b>Keep private</b> — the content isn't deleted, you're just deciding this one isn't for sharing. It leaves the queue and only you can see it.<br>
-    <b>Skip for now</b> — stays a draft, comes back next time you open this page.<br>
-    Everything you don't exclude gets published when you hit "Publish this round" below.
+    <span data-i18n-html="rule1"></span><br>
+    <span data-i18n-html="rule2"></span><br>
+    <span data-i18n="rule3"></span>
   </div>
   <div class="channel-tabs" id="channel-tabs"></div>
   <div id="error-area"></div>
@@ -70,22 +72,22 @@
 </main>
 
 <div class="publish-bar" id="publish-bar" style="display:none;">
-  <div class="count pixel-font" id="publish-count">0 pending</div>
-  <button class="publish-btn outset" id="publish-btn" onclick="confirmPublish()">✓ Publish this round</button>
+  <div class="count pixel-font" id="publish-count">0</div>
+  <button class="publish-btn outset" id="publish-btn" data-i18n="btn_publish" onclick="confirmPublish()">✓ Publish this round</button>
 </div>
 
 <!-- 编辑 -->
 <div class="modal-overlay" id="edit-modal">
   <div class="modal">
-    <h2 class="pixel-font">Edit</h2>
+    <h2 class="pixel-font" data-i18n="edit_modal_title">Edit</h2>
     <input type="hidden" id="edit-id">
-    <label>Title</label>
+    <label data-i18n="edit_label_title">Title</label>
     <input type="text" id="edit-title" maxlength="80">
-    <label>Content</label>
+    <label data-i18n="edit_label_content">Content</label>
     <textarea id="edit-content"></textarea>
     <div class="modal-actions">
-      <button class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
-      <button class="btn btn-submit" onclick="submitEdit()">Save</button>
+      <button class="btn btn-cancel" data-i18n="btn_cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-submit" data-i18n="btn_save" onclick="submitEdit()">Save</button>
     </div>
   </div>
 </div>
@@ -93,7 +95,7 @@
 <div class="toast" id="toast">
   <div class="toast-icon" id="toast-icon">🏆</div>
   <div class="toast-text">
-    <div class="t1 pixel-font" id="toast-title">ACHIEVEMENT GET!</div>
+    <div class="t1 pixel-font" id="toast-title" data-i18n="toast_title_achievement">ACHIEVEMENT GET!</div>
     <div class="t2" id="toast-msg">Published</div>
   </div>
 </div>
@@ -105,15 +107,16 @@ let currentChannel = "";
 
 function showError(msg) {
   document.getElementById("error-area").innerHTML =
-    `<div class="error-banner">Can't reach the server: ${msg}<br>Check that ourfeed.py is running.</div>`;
+    `<div class="error-banner">${t("err_prefix")}${msg}<br>${t("err_suffix")}</div>`;
 }
 function clearError() { document.getElementById("error-area").innerHTML = ""; }
 
 function renderChannelTabs() {
   const tabs = document.getElementById("channel-tabs");
-  const all = `<button class="active" data-channel="" onclick="switchChannel('', this)">All</button>`;
+  const active = currentChannel;
+  const all = `<button class="${active === "" ? "active" : ""}" data-channel="" onclick="switchChannel('', this)">${t("tab_all")}</button>`;
   const rest = OURFEED_CONFIG.channels.map(c =>
-    `<button data-channel="${c.id}" onclick="switchChannel('${c.id}', this)">${c.icon || ""} ${c.label}</button>`
+    `<button class="${active === c.id ? "active" : ""}" data-channel="${c.id}" onclick="switchChannel('${c.id}', this)">${c.icon || ""} ${channelLabel(c)}</button>`
   ).join("");
   tabs.innerHTML = all + rest;
 }
@@ -130,21 +133,22 @@ function draftCardHtml(entry) {
       ${entry.title ? `<div class="card-title">${escapeHtml(entry.title)}</div>` : ""}
       <div class="card-body">${escapeHtml(entry.content)}</div>
       <div class="draft-actions">
-        <button class="mc-chip" onclick="openEditModal(${entry.id})">✏️ Edit</button>
-        <button class="mc-chip danger" onclick="privatize(${entry.id})">🔒 Keep private</button>
-        <button class="mc-chip skip" onclick="skip(${entry.id})">⏭ Skip for now</button>
+        <button class="mc-chip" onclick="openEditModal(${entry.id})">${t("btn_edit")}</button>
+        <button class="mc-chip danger" onclick="privatize(${entry.id})">${t("btn_keep_private")}</button>
+        <button class="mc-chip skip" onclick="skip(${entry.id})">${t("btn_skip")}</button>
       </div>
     </div>`;
 }
 
 function onEntryChanged() { loadQueue(); }
+function onLangChanged() { renderChannelTabs(); renderQueue(); }
 
 function renderQueue() {
-  document.getElementById("stat-badge").textContent = `${queue.length} drafts`;
+  document.getElementById("stat-badge").textContent = t("stat_drafts", { n: queue.length });
 
   const list = document.getElementById("queue-list");
   if (queue.length === 0) {
-    list.innerHTML = `<div class="empty-state"><span class="pixel-font">Drafts are empty</span>Go to <a href="feed.html">Feed</a> and write something</div>`;
+    list.innerHTML = `<div class="empty-state"><span class="pixel-font">${t("empty_drafts_title")}</span>${t("empty_drafts_body")}</div>`;
   } else {
     list.innerHTML = queue.map(draftCardHtml).join("");
   }
@@ -155,7 +159,7 @@ function renderQueue() {
     bar.style.display = "none";
   } else {
     bar.style.display = "flex";
-    document.getElementById("publish-count").textContent = `${queue.length} pending`;
+    document.getElementById("publish-count").textContent = t("publish_count", { n: queue.length });
     btn.disabled = false;
   }
 }
@@ -184,9 +188,9 @@ async function privatize(id) {
     await api(`/api/entries/${id}/privatize`, { method: "POST" });
     queue = queue.filter(e => e.id !== id);
     renderQueue();
-    showToast("Marked private, out of the queue", "🔒");
+    showToast(t("toast_privatized"), "🔒");
   } catch (e) {
-    alert("Failed: " + e.message);
+    alert(t("alert_failed") + e.message);
   }
 }
 
@@ -195,9 +199,9 @@ async function skip(id) {
     await api(`/api/entries/${id}/skip`, { method: "POST" });
     queue = queue.filter(e => e.id !== id);
     renderQueue();
-    showToast("Skipped, it'll ask again next time", "⏭");
+    showToast(t("toast_skipped"), "⏭");
   } catch (e) {
-    alert("Failed: " + e.message);
+    alert(t("alert_failed") + e.message);
   }
 }
 
@@ -212,10 +216,10 @@ async function confirmPublish() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),
     });
-    showToast(`${ids.length} published to the feed`, "🏆");
+    showToast(t("toast_published", { n: ids.length }), "🏆");
     await loadQueue();
   } catch (e) {
-    alert("Publish failed: " + e.message);
+    alert(t("alert_publish_failed") + e.message);
     btn.disabled = false;
   }
 }

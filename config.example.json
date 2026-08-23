@@ -1,10 +1,10 @@
 {
   "site_name": "Ourfeed",
-  "tagline": "A shared feed for the people you trust",
+  "tagline": { "en": "A shared feed for the people you trust", "zh": "一个只属于信任的人的动态流" },
   "port": 8731,
   "cookie_secure": false,
   "channels": [
-    { "id": "life", "label": "Life", "icon": "🏠", "color": "#6cad3a" },
-    { "id": "work", "label": "Work", "icon": "💼", "color": "#4a90d9" }
+    { "id": "life", "label": { "en": "Life", "zh": "生活" }, "icon": "🏠", "color": "#6cad3a" },
+    { "id": "work", "label": { "en": "Work", "zh": "工作" }, "icon": "💼", "color": "#4a90d9" }
   ]
 }

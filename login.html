@@ -12,26 +12,30 @@
 
 <div class="auth-wrap">
   <div class="auth-card">
+    <div style="text-align:right; margin-bottom:8px;"><button class="mc-chip lang-toggle">中文</button></div>
     <h1 class="site-name pixel-font">Ourfeed</h1>
-    <div class="sub" id="tagline">a shared feed for the people you trust</div>
+    <div class="sub tagline"></div>
 
-    <label>Username</label>
+    <label data-i18n="label_username">Username</label>
     <input type="text" id="username" autocomplete="username">
-    <label>Password</label>
+    <label data-i18n="label_password">Password</label>
     <input type="password" id="password" autocomplete="current-password">
 
     <div class="auth-error" id="error"></div>
 
-    <button class="btn btn-submit" onclick="submitLogin()">Log in</button>
-    <div class="switch-link">No account? <a href="register.html">Register with an invite code</a></div>
+    <button class="btn btn-submit" data-i18n="btn_login" onclick="submitLogin()">Log in</button>
+    <div class="switch-link"><span data-i18n="no_account">No account?</span> <a href="register.html" data-i18n="register_link">Register with an invite code</a></div>
   </div>
 </div>
 
+<script src="ourfeed-common.js"></script>
 <script>
 async function boot() {
   const cfg = await (await fetch("/api/config")).json();
+  OURFEED_CONFIG = cfg;
   document.querySelector(".site-name").textContent = cfg.site_name;
-  document.getElementById("tagline").textContent = cfg.tagline || "";
+  initI18n();
+  renderTagline();
   if (cfg.bootstrap) {
     location.href = "register.html";
   }
@@ -46,7 +50,7 @@ function showError(msg) {
 async function submitLogin() {
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
-  if (!username || !password) { showError("Enter username and password"); return; }
+  if (!username || !password) { showError(t("err_enter_both")); return; }
   try {
     const res = await fetch("/api/login", {
       method: "POST",
@@ -54,7 +58,7 @@ async function submitLogin() {
       body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Login failed");
+    if (!res.ok) throw new Error(data.error || t("err_login_failed"));
     location.href = "feed.html";
   } catch (e) {
     showError(e.message);
