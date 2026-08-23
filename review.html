@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Drafts · Ourfeed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ourfeed-common.css">
+<style>
+  main { padding-bottom: 140px; }
+
+  .rule-box {
+    background: rgba(0,0,0,0.25); border: 2px solid rgba(255,255,255,0.15);
+    padding: 12px 14px; margin-bottom: 20px; font-family: 'Inter'; font-size: 12px;
+    color: #cdbfa0; line-height: 1.6;
+  }
+  .rule-box b { color: var(--cream); }
+
+  .draft-card .card-time { color: #8a7a5c; }
+  .draft-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .draft-actions .mc-chip { flex: 1; text-align: center; }
+
+  .publish-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 25;
+    background: repeating-linear-gradient(90deg, var(--wood) 0 26px, var(--wood-dark) 26px 28px);
+    border-top: 5px solid var(--wood-dark);
+    box-shadow: 0 -4px 0 rgba(0,0,0,0.3);
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  .publish-bar .count { font-size: 10px; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); }
+  .publish-btn {
+    font-family: 'Silkscreen'; font-weight: 700; font-size: 13px;
+    padding: 12px 26px; cursor: pointer; color: #16290a;
+  }
+  .publish-btn:disabled { opacity: .5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="block-icon">⛏️</div>
+    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose">a shared feed for the people you trust</span></div>
+  </div>
+  <nav class="hotbar outset">
+    <a href="feed.html">📗 Feed</a>
+    <a href="review.html" class="active">🗃️ Drafts</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div class="stat-badge prose" id="stat-badge">0 drafts</div>
+    <div class="identity" id="identity-toggle" title="Log out">
+      <div class="head" id="identity-head">?</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="section-title pixel-font">Drafts</div>
+  <div class="section-sub">Opt-out review: leave it alone and it gets published</div>
+  <div class="rule-box">
+    <b>Keep private</b> — the content isn't deleted, you're just deciding this one isn't for sharing. It leaves the queue and only you can see it.<br>
+    <b>Skip for now</b> — stays a draft, comes back next time you open this page.<br>
+    Everything you don't exclude gets published when you hit "Publish this round" below.
+  </div>
+  <div class="channel-tabs" id="channel-tabs"></div>
+  <div id="error-area"></div>
+  <div id="queue-list"></div>
+</main>
+
+<div class="publish-bar" id="publish-bar" style="display:none;">
+  <div class="count pixel-font" id="publish-count">0 pending</div>
+  <button class="publish-btn outset" id="publish-btn" onclick="confirmPublish()">✓ Publish this round</button>
+</div>
+
+<!-- 编辑 -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h2 class="pixel-font">Edit</h2>
+    <input type="hidden" id="edit-id">
+    <label>Title</label>
+    <input type="text" id="edit-title" maxlength="80">
+    <label>Content</label>
+    <textarea id="edit-content"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-submit" onclick="submitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon">🏆</div>
+  <div class="toast-text">
+    <div class="t1 pixel-font" id="toast-title">ACHIEVEMENT GET!</div>
+    <div class="t2" id="toast-msg">Published</div>
+  </div>
+</div>
+
+<script src="ourfeed-common.js"></script>
+<script>
+let queue = [];
+let currentChannel = "";
+
+function showError(msg) {
+  document.getElementById("error-area").innerHTML =
+    `<div class="error-banner">Can't reach the server: ${msg}<br>Check that ourfeed.py is running.</div>`;
+}
+function clearError() { document.getElementById("error-area").innerHTML = ""; }
+
+function renderChannelTabs() {
+  const tabs = document.getElementById("channel-tabs");
+  const all = `<button class="active" data-channel="" onclick="switchChannel('', this)">All</button>`;
+  const rest = OURFEED_CONFIG.channels.map(c =>
+    `<button data-channel="${c.id}" onclick="switchChannel('${c.id}', this)">${c.icon || ""} ${c.label}</button>`
+  ).join("");
+  tabs.innerHTML = all + rest;
+}
+
+function draftCardHtml(entry) {
+  return `
+    <div class="card draft-card" id="draft-${entry.id}">
+      <div class="card-top">
+        <div class="card-head" style="--user-color:${entry.author_avatar_color}">${(entry.author_display_name || "?").slice(0,1).toUpperCase()}</div>
+        <div class="card-name">${escapeHtml(entry.author_display_name)}</div>
+        ${channelTagsHtml(entry, true)}
+        <div class="card-time">${formatRelativeTime(entry.created_at)}</div>
+      </div>
+      ${entry.title ? `<div class="card-title">${escapeHtml(entry.title)}</div>` : ""}
+      <div class="card-body">${escapeHtml(entry.content)}</div>
+      <div class="draft-actions">
+        <button class="mc-chip" onclick="openEditModal(${entry.id})">✏️ Edit</button>
+        <button class="mc-chip danger" onclick="privatize(${entry.id})">🔒 Keep private</button>
+        <button class="mc-chip skip" onclick="skip(${entry.id})">⏭ Skip for now</button>
+      </div>
+    </div>`;
+}
+
+function onEntryChanged() { loadQueue(); }
+
+function renderQueue() {
+  document.getElementById("stat-badge").textContent = `${queue.length} drafts`;
+
+  const list = document.getElementById("queue-list");
+  if (queue.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="pixel-font">Drafts are empty</span>Go to <a href="feed.html">Feed</a> and write something</div>`;
+  } else {
+    list.innerHTML = queue.map(draftCardHtml).join("");
+  }
+
+  const bar = document.getElementById("publish-bar");
+  const btn = document.getElementById("publish-btn");
+  if (queue.length === 0) {
+    bar.style.display = "none";
+  } else {
+    bar.style.display = "flex";
+    document.getElementById("publish-count").textContent = `${queue.length} pending`;
+    btn.disabled = false;
+  }
+}
+
+function switchChannel(channel, btn) {
+  currentChannel = channel;
+  document.querySelectorAll(".channel-tabs button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  loadQueue();
+}
+
+async function loadQueue() {
+  clearError();
+  try {
+    const chParam = currentChannel ? `?channel=${currentChannel}` : "";
+    queue = await api(`/api/entries/review${chParam}`);
+  } catch (e) {
+    showError(e.message);
+    return;
+  }
+  renderQueue();
+}
+
+async function privatize(id) {
+  try {
+    await api(`/api/entries/${id}/privatize`, { method: "POST" });
+    queue = queue.filter(e => e.id !== id);
+    renderQueue();
+    showToast("Marked private, out of the queue", "🔒");
+  } catch (e) {
+    alert("Failed: " + e.message);
+  }
+}
+
+async function skip(id) {
+  try {
+    await api(`/api/entries/${id}/skip`, { method: "POST" });
+    queue = queue.filter(e => e.id !== id);
+    renderQueue();
+    showToast("Skipped, it'll ask again next time", "⏭");
+  } catch (e) {
+    alert("Failed: " + e.message);
+  }
+}
+
+async function confirmPublish() {
+  if (queue.length === 0) return;
+  const ids = queue.map(e => e.id);
+  const btn = document.getElementById("publish-btn");
+  btn.disabled = true;
+  try {
+    await api("/api/entries/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    showToast(`${ids.length} published to the feed`, "🏆");
+    await loadQueue();
+  } catch (e) {
+    alert("Publish failed: " + e.message);
+    btn.disabled = false;
+  }
+}
+
+// ---- 启动 ----
+initAuth().then(me => {
+  if (!me) return;
+  renderChannelTabs();
+  loadQueue();
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ourfeed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ourfeed-common.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="block-icon">⛏️</div>
+    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose">a shared feed for the people you trust</span></div>
+  </div>
+  <nav class="hotbar outset">
+    <a href="feed.html" class="active">📗 Feed</a>
+    <a href="review.html">🗃️ Drafts</a>
+  </nav>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div class="stat-badge prose" id="stat-badge">0 shared</div>
+    <div class="identity" id="identity-toggle" title="Log out">
+      <div class="head" id="identity-head">?</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="section-title pixel-font">Feed</div>
+  <div class="section-sub">Shared on purpose · tap a post to read the whole thing</div>
+  <div class="channel-tabs" id="channel-tabs"></div>
+  <div id="error-area"></div>
+  <div id="feed"></div>
+</main>
+
+<button class="fab outset" id="fab-new">+</button>
+
+<!-- 新建条目 -->
+<div class="modal-overlay" id="composer-modal">
+  <div class="modal">
+    <h2 class="pixel-font">Share something</h2>
+    <label>Tag it (pick at least one)</label>
+    <div class="channel-select" id="composer-channel-select"></div>
+    <label>Title</label>
+    <input type="text" id="composer-title" maxlength="80" placeholder="One line title">
+    <label>Content</label>
+    <textarea id="composer-content" placeholder="Future you (or them) will thank you for the detail"></textarea>
+    <div class="modal-hint">This goes into your drafts first. Publish it from "Drafts" when you're ready.</div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeComposer()">Cancel</button>
+      <button class="btn btn-submit" onclick="submitComposer()">Save draft</button>
+    </div>
+  </div>
+</div>
+
+<!-- 回应 -->
+<div class="modal-overlay" id="reply-modal">
+  <div class="modal">
+    <h2 class="pixel-font">Reply</h2>
+    <input type="hidden" id="reply-parent-id">
+    <label>Your reply</label>
+    <textarea id="reply-content" placeholder="Add on, dig deeper, or push back"></textarea>
+    <div class="modal-hint">Replies are written live, so they publish immediately (no draft review).</div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeReply()">Cancel</button>
+      <button class="btn btn-submit" onclick="submitReply()">Post</button>
+    </div>
+  </div>
+</div>
+
+<!-- 编辑 -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h2 class="pixel-font">Edit</h2>
+    <input type="hidden" id="edit-id">
+    <label>Title</label>
+    <input type="text" id="edit-title" maxlength="80">
+    <label>Content</label>
+    <textarea id="edit-content"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn btn-submit" onclick="submitEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon">📝</div>
+  <div class="toast-text">
+    <div class="t1 pixel-font">DRAFT SAVED</div>
+    <div class="t2" id="toast-msg">Saved to drafts</div>
+  </div>
+</div>
+
+<script src="ourfeed-common.js"></script>
+<script>
+let lastVisit = localStorage.getItem("of_last_visit") || null;
+let currentChannel = "";
+
+function showError(msg) {
+  document.getElementById("error-area").innerHTML =
+    `<div class="error-banner">Can't reach the server: ${msg}<br>Check that ourfeed.py is running.</div>`;
+}
+function clearError() { document.getElementById("error-area").innerHTML = ""; }
+
+function renderChannelTabs() {
+  const tabs = document.getElementById("channel-tabs");
+  const all = `<button class="active" data-channel="" onclick="switchChannel('', this)">All</button>`;
+  const rest = OURFEED_CONFIG.channels.map(c =>
+    `<button data-channel="${c.id}" onclick="switchChannel('${c.id}', this)">${c.icon || ""} ${c.label}</button>`
+  ).join("");
+  tabs.innerHTML = all + rest;
+}
+
+function renderComposerChannels() {
+  const container = document.getElementById("composer-channel-select");
+  container.innerHTML = OURFEED_CONFIG.channels.map((c, i) =>
+    `<label class="${i === 0 ? "checked" : ""}"><input type="checkbox" name="composer-channel" value="${c.id}" ${i === 0 ? "checked" : ""}> ${c.icon || ""} ${c.label}</label>`
+  ).join("");
+}
+
+function cardHtml(entry, isReply) {
+  const isNew = lastVisit && entry.shared_at && entry.shared_at > lastVisit;
+  const isMine = ME && entry.author === ME.username;
+  const editedTag = entry.edited_at ? `<span class="edited-tag">edited</span>` : "";
+  const ownerActions = isMine
+    ? `<button class="mc-chip" onclick="openEditModal(${entry.id})">✏️ Edit</button>
+       ${isReply ? "" : `<button class="mc-chip danger" onclick="deleteEntry(${entry.id})">🗑 Delete</button>`}`
+    : "";
+  const actions = `
+    <div class="card-actions">
+      ${isReply ? "" : `<button class="mc-chip" onclick="openReply(${entry.id})">💬 Reply</button>`}
+      ${ownerActions}
+    </div>`;
+  return `
+    <div class="card ${isReply ? "reply" : ""}">
+      <div class="card-top">
+        <div class="card-head" style="--user-color:${entry.author_avatar_color}">${(entry.author_display_name || "?").slice(0,1).toUpperCase()}</div>
+        <div class="card-name">${escapeHtml(entry.author_display_name)}${isReply ? " · reply" : ""}</div>
+        ${isReply ? "" : channelTagsHtml(entry, isMine)}
+        ${isNew ? '<span class="new-tag">NEW</span>' : ""}
+        ${editedTag}
+        <div class="card-time">${formatRelativeTime(entry.shared_at || entry.created_at)}</div>
+      </div>
+      ${entry.title ? `<div class="card-title">${escapeHtml(entry.title)}</div>` : ""}
+      <div class="card-body">${escapeHtml(entry.content)}</div>
+      ${actions}
+    </div>`;
+}
+
+function onEntryChanged() { loadFeed(); }
+
+function switchChannel(channel, btn) {
+  currentChannel = channel;
+  document.querySelectorAll(".channel-tabs button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  loadFeed();
+}
+
+async function loadFeed() {
+  clearError();
+  let entries;
+  try {
+    const qs = currentChannel ? `?channel=${currentChannel}` : "";
+    entries = await api("/api/entries" + qs);
+  } catch (e) {
+    showError(e.message);
+    return;
+  }
+
+  document.getElementById("stat-badge").textContent = `${entries.length} shared`;
+
+  const feed = document.getElementById("feed");
+  if (entries.length === 0) {
+    feed.innerHTML = `<div class="empty-state"><span class="pixel-font">Nothing here yet</span>Tap "+" to share the first thing</div>`;
+    localStorage.setItem("of_last_visit", new Date().toISOString());
+    return;
+  }
+
+  const byId = {};
+  entries.forEach(e => byId[e.id] = e);
+  const roots = entries.filter(e => !e.parent_id || !byId[e.parent_id]);
+  const repliesByParent = {};
+  entries.forEach(e => {
+    if (e.parent_id && byId[e.parent_id]) {
+      (repliesByParent[e.parent_id] = repliesByParent[e.parent_id] || []).push(e);
+    }
+  });
+
+  roots.sort((a, b) => (b.shared_at || "").localeCompare(a.shared_at || ""));
+
+  let html = "";
+  roots.forEach(root => {
+    html += cardHtml(root, false);
+    (repliesByParent[root.id] || [])
+      .sort((a, b) => (a.shared_at || "").localeCompare(b.shared_at || ""))
+      .forEach(reply => { html += cardHtml(reply, true); });
+  });
+  feed.innerHTML = html;
+
+  localStorage.setItem("of_last_visit", new Date().toISOString());
+}
+
+// ---- 新建条目 ----
+function openComposer() {
+  document.getElementById("composer-title").value = "";
+  document.getElementById("composer-content").value = "";
+  renderComposerChannels();
+  document.getElementById("composer-modal").classList.add("show");
+}
+function closeComposer() { document.getElementById("composer-modal").classList.remove("show"); }
+
+document.addEventListener("change", (e) => {
+  if (e.target.name === "composer-channel") {
+    e.target.closest("label").classList.toggle("checked", e.target.checked);
+  }
+});
+
+async function submitComposer() {
+  const title = document.getElementById("composer-title").value.trim();
+  const content = document.getElementById("composer-content").value.trim();
+  const channels = Array.from(document.querySelectorAll('input[name="composer-channel"]:checked')).map(i => i.value);
+  if (!title || !content) { alert("Title and content are both required"); return; }
+  if (channels.length === 0) { alert("Pick at least one tag"); return; }
+  try {
+    await api("/api/entries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, content, channels }),
+    });
+    closeComposer();
+    showToast("Saved to drafts, publish it from Drafts", "📝");
+  } catch (e) {
+    alert("Save failed: " + e.message);
+  }
+}
+
+// ---- 回应 ----
+function openReply(parentId) {
+  document.getElementById("reply-parent-id").value = parentId;
+  document.getElementById("reply-content").value = "";
+  document.getElementById("reply-modal").classList.add("show");
+}
+function closeReply() { document.getElementById("reply-modal").classList.remove("show"); }
+
+async function submitReply() {
+  const parentId = document.getElementById("reply-parent-id").value;
+  const content = document.getElementById("reply-content").value.trim();
+  if (!content) { alert("Write something first"); return; }
+  try {
+    await api(`/api/entries/${parentId}/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "", content }),
+    });
+    closeReply();
+    showToast("Reply posted", "💬");
+    loadFeed();
+  } catch (e) {
+    alert("Post failed: " + e.message);
+  }
+}
+
+document.getElementById("fab-new").addEventListener("click", openComposer);
+
+// ---- 启动 ----
+initAuth().then(me => {
+  if (!me) return;
+  renderChannelTabs();
+  loadFeed();
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "site_name": "Ourfeed",
+  "tagline": "A shared feed for the people you trust",
+  "port": 8731,
+  "cookie_secure": false,
+  "channels": [
+    { "id": "life", "label": "Life", "icon": "🏠", "color": "#6cad3a" },
+    { "id": "work", "label": "Work", "icon": "💼", "color": "#4a90d9" }
+  ]
+}

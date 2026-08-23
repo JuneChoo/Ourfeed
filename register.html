@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Register · Ourfeed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ourfeed-common.css">
+</head>
+<body>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1 class="site-name pixel-font">Ourfeed</h1>
+    <div class="sub" id="mode-hint">a shared feed for the people you trust</div>
+
+    <div id="invite-field">
+      <label>Invite code</label>
+      <input type="text" id="invite_code">
+    </div>
+    <label>Username</label>
+    <input type="text" id="username" autocomplete="username" placeholder="3-20 letters/numbers/_/-">
+    <label>Display name</label>
+    <input type="text" id="display_name" placeholder="Optional, defaults to username">
+    <label>Password</label>
+    <input type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters">
+
+    <div class="auth-error" id="error"></div>
+
+    <button class="btn btn-submit" onclick="submitRegister()">Create account</button>
+    <div class="switch-link">Already have an account? <a href="login.html">Log in</a></div>
+  </div>
+</div>
+
+<script>
+let bootstrap = false;
+
+async function boot() {
+  const cfg = await (await fetch("/api/config")).json();
+  document.querySelector(".site-name").textContent = cfg.site_name;
+  bootstrap = cfg.bootstrap;
+  if (bootstrap) {
+    document.getElementById("invite-field").style.display = "none";
+    document.getElementById("mode-hint").textContent = "No account exists yet — you'll become the admin.";
+  } else {
+    document.getElementById("mode-hint").textContent = cfg.tagline || "";
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById("error");
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+async function submitRegister() {
+  const invite_code = document.getElementById("invite_code").value.trim();
+  const username = document.getElementById("username").value.trim();
+  const display_name = document.getElementById("display_name").value.trim();
+  const password = document.getElementById("password").value;
+  if (!username || !password) { showError("Username and password are required"); return; }
+  if (!bootstrap && !invite_code) { showError("Invite code is required"); return; }
+  try {
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invite_code, username, display_name, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Registration failed");
+    location.href = "feed.html";
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+boot();
+</script>
+
+</body>
+</html>

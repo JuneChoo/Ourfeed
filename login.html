@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Log in · Ourfeed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ourfeed-common.css">
+</head>
+<body>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <h1 class="site-name pixel-font">Ourfeed</h1>
+    <div class="sub" id="tagline">a shared feed for the people you trust</div>
+
+    <label>Username</label>
+    <input type="text" id="username" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="password" autocomplete="current-password">
+
+    <div class="auth-error" id="error"></div>
+
+    <button class="btn btn-submit" onclick="submitLogin()">Log in</button>
+    <div class="switch-link">No account? <a href="register.html">Register with an invite code</a></div>
+  </div>
+</div>
+
+<script>
+async function boot() {
+  const cfg = await (await fetch("/api/config")).json();
+  document.querySelector(".site-name").textContent = cfg.site_name;
+  document.getElementById("tagline").textContent = cfg.tagline || "";
+  if (cfg.bootstrap) {
+    location.href = "register.html";
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById("error");
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+async function submitLogin() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+  if (!username || !password) { showError("Enter username and password"); return; }
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Login failed");
+    location.href = "feed.html";
+  } catch (e) {
+    showError(e.message);
+  }
+}
+
+document.getElementById("password").addEventListener("keydown", e => {
+  if (e.key === "Enter") submitLogin();
+});
+
+boot();
+</script>
+
+</body>
+</html>
