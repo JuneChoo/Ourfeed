@@ -15,6 +15,7 @@ See README.md in this folder for setup, including how to make this run
 automatically instead of by hand.
 """
 import argparse
+import difflib
 import json
 import os
 import re
@@ -24,7 +25,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -38,6 +39,9 @@ CLAUDE_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
 MAX_SAMPLE_CHARS = 6000
 VALID_CATEGORIES = {"A", "B", "D", "E", "F"}
+DEDUP_LOOKBACK_DAYS = 14
+DEDUP_SIMILARITY_THRESHOLD = 0.5
+DIGEST_TOTAL_BUDGET = 15000
 
 
 # ── Config ────────────────────────────────────────────────
@@ -121,6 +125,31 @@ def load_rejected_examples(base_url, token, category):
             low.append(f"- [{e.get('title', '')}] {e.get('content', '')[:80]}")
 
     return ("\n".join(high[:8]) or "(none yet)"), ("\n".join(low[:8]) or "(none yet)")
+
+
+def find_duplicate(base_url, token, candidate):
+    """Different sessions get extracted independently, so the same real event
+    (e.g. "picked a project name") can get drafted twice from two different
+    conversations. Compare against recent entries (any status) before posting,
+    skip if it looks like the same thing. Character-level diff, works fine on
+    any language, no embeddings needed for this."""
+    all_entries = ourfeed_request(base_url, token, "GET", "/api/entries/mine") or []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=DEDUP_LOOKBACK_DAYS)
+    cand_text = (candidate.get("title", "") + " " + candidate.get("content", "")).strip()
+    for e in all_entries:
+        try:
+            created = datetime.fromisoformat(e["created_at"])
+        except Exception:
+            continue
+        if created < cutoff:
+            continue
+        existing_text = (e.get("title", "") + " " + e.get("content", "")).strip()
+        if not existing_text:
+            continue
+        ratio = difflib.SequenceMatcher(None, cand_text, existing_text).ratio()
+        if ratio > DEDUP_SIMILARITY_THRESHOLD:
+            return e.get("title", "")
+    return None
 
 
 def post_draft(base_url, token, candidate):
@@ -329,6 +358,11 @@ Return {{"candidates": []}} if nothing qualifies. JSON only, no other text."""
 DIGEST_PROMPT = """You're writing a short "what I did today" post for someone's
 personal feed. This is for people who know them, not a status report.
 
+**Write exactly one candidate, not several separate ones.** This is different
+from the per-session extraction (which finds individual B/D/E/F highlights),
+today's activity gets merged into a single candidate with category "A", not
+split into multiple B/D/E/F items.
+
 ## Whether to write anything
 Only write something if today touched 3+ different topics/projects, or one task got
 followed up on for a lot of turns (signals real focus). If today was thin or
@@ -432,13 +466,20 @@ def extract_digest(base_url, token, channel_ids):
         messages = parse_jsonl(s)
         if len(messages) < 4:
             continue
-        parts.append(f"[{infer_project(s)}]\n{smart_sample(messages)}")
+        parts.append((infer_project(s), smart_sample(messages)))
 
     if not parts:
         print("  Not enough content today, skipping digest")
         return []
 
-    conversation = "\n\n---\n\n".join(parts)[:12000]
+    # Split the total budget across sessions instead of truncating the
+    # combined text, otherwise the first couple of sessions eat the whole
+    # budget and everything after that never reaches the model at all.
+    per_session_budget = max(400, DIGEST_TOTAL_BUDGET // len(parts))
+    all_text = [f"[{project}]\n{sample[:per_session_budget]}" for project, sample in parts]
+    conversation = "\n\n---\n\n".join(all_text)
+    print(f"  {len(parts)} sessions, ~{per_session_budget} chars each, {len(conversation)} total")
+
     rejected_high, _ = load_rejected_examples(base_url, token, "A")
 
     prompt = DIGEST_PROMPT.format(
@@ -448,7 +489,14 @@ def extract_digest(base_url, token, channel_ids):
     )
     print("Calling claude (daily digest)...")
     raw = call_llm(prompt)
-    return parse_llm_json(raw)
+    candidates = parse_llm_json(raw)
+    # The prompt asks for exactly one candidate tagged "A", but that's not
+    # guaranteed (same gap as the dashes one), enforce it mechanically.
+    if candidates:
+        first = candidates[0]
+        first["category"] = "A"
+        candidates = [first]
+    return candidates
 
 
 # ── Main ──────────────────────────────────────────────────
@@ -494,8 +542,19 @@ def main():
         print("\n[dry-run] not posting")
         return
 
-    posted = sum(1 for c in candidates if post_draft(base_url, token, c))
-    print(f"\nPosted {posted}/{len(candidates)} draft(s), review them at your Ourfeed instance's Drafts page")
+    posted, skipped_dup = 0, 0
+    for c in candidates:
+        dup_title = find_duplicate(base_url, token, c)
+        if dup_title:
+            print(f"  Skipped (too similar to an existing entry): [{c.get('category')}] {c.get('title')} ~= \"{dup_title}\"")
+            skipped_dup += 1
+            continue
+        if post_draft(base_url, token, c):
+            posted += 1
+    msg = f"\nPosted {posted}/{len(candidates)} draft(s)"
+    if skipped_dup:
+        msg += f", {skipped_dup} skipped as duplicates"
+    print(msg + ", review them at your Ourfeed instance's Drafts page")
 
 
 if __name__ == "__main__":
