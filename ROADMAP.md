@@ -43,11 +43,14 @@ an X post actually tries it, in roughly the order they matter.
      is pasted into X/Slack/Discord.
    - A tagged `v1.0.0` release with short release notes, not just a
      floating `master` branch. People check for tags as a maturity signal.
-3. **`SECURITY.md`.** This handles passwords and is meant to sit on a home
-   network or behind Tailscale, so state the threat model plainly: small
-   trusted group, not designed to be internet-facing, no login rate
-   limiting yet, TLS via a reverse proxy is the deployer's responsibility.
-   Self-hosting audiences specifically check for this before trusting a
+3. **`SECURITY.md`.** ~~Done~~ (2026-08-24, added along with basic login/
+   invite-code rate limiting after actually exposing an instance to the
+   public internet via Tailscale Funnel surfaced this as a real gap, not
+   just a theoretical one). State the threat model plainly: small trusted
+   group, invite-only, rate limited but not hardened against sustained
+   attack, TLS via a reverse proxy or Funnel/Tunnel is the deployer's
+   responsibility. Self-hosting audiences specifically check for this before
+   trusting a
    project with an account system, and writing it honestly (rather than
    overselling security that isn't there) builds more trust, not less.
 4. **`CONTRIBUTING.md`**, even a short one: how to run it locally, how to

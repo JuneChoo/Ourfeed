@@ -14,6 +14,8 @@ import secrets
 import shutil
 import sqlite3
 import sys
+import threading
+import time
 import urllib.parse
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -33,6 +35,42 @@ SESSION_DAYS = 30
 PBKDF2_ITERATIONS = 200_000
 AVATAR_PALETTE = ["#e8834a", "#4a8fe8", "#6cad3a", "#c65ce0", "#e6432e", "#2ecc71", "#f8c93a", "#8a6339"]
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_SECONDS = 300  # 5 分钟
+_login_attempts = {}  # ip -> [失败次数, 第一次失败的时间戳]
+_login_attempts_lock = threading.Lock()
+
+
+def _login_rate_limited(ip):
+    """超过 LOGIN_MAX_ATTEMPTS 次失败就锁 LOGIN_LOCKOUT_SECONDS 秒，按IP算，不是按
+    用户名（按用户名算的话，攻击者可以用一堆用户名试同一个常见密码绕过限制）。
+    只在暴露到公网时才真正有意义，纯本地/Tailscale访问基本不会撞上这个。"""
+    now = time.time()
+    with _login_attempts_lock:
+        entry = _login_attempts.get(ip)
+        if entry is None:
+            return False
+        count, first_time = entry
+        if now - first_time > LOGIN_LOCKOUT_SECONDS:
+            del _login_attempts[ip]
+            return False
+        return count >= LOGIN_MAX_ATTEMPTS
+
+
+def _record_login_failure(ip):
+    now = time.time()
+    with _login_attempts_lock:
+        entry = _login_attempts.get(ip)
+        if entry is None or now - entry[1] > LOGIN_LOCKOUT_SECONDS:
+            _login_attempts[ip] = [1, now]
+        else:
+            entry[0] += 1
+
+
+def _clear_login_failures(ip):
+    with _login_attempts_lock:
+        _login_attempts.pop(ip, None)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -353,6 +391,9 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json(_public_user(user))
 
     def _register(self, body):
+        ip = self.client_address[0]
+        if _login_rate_limited(ip):
+            raise BoardError(429, f"失败次数太多，{LOGIN_LOCKOUT_SECONDS // 60} 分钟后再试")
         username = (body.get("username") or "").strip()
         password = body.get("password") or ""
         display_name = (body.get("display_name") or "").strip() or username
@@ -377,6 +418,7 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                     "SELECT * FROM invite_codes WHERE code = ? AND used_by IS NULL", (invite_code,)
                 ).fetchone()
                 if not invite_row:
+                    _record_login_failure(ip)
                     raise BoardError(400, "邀请码无效或已被使用")
 
             role = "admin" if not has_users else "member"
@@ -402,14 +444,19 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json(_public_user(row), status=201, set_cookie=self._cookie_header(token))
 
     def _login(self, body):
+        ip = self.client_address[0]
+        if _login_rate_limited(ip):
+            raise BoardError(429, f"失败次数太多，{LOGIN_LOCKOUT_SECONDS // 60} 分钟后再试")
         username = (body.get("username") or "").strip()
         password = body.get("password") or ""
         with closing(_db()) as conn:
             row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
             if not row or not _verify_password(password, row["password_salt"], row["password_hash"]):
+                _record_login_failure(ip)
                 raise BoardError(401, "用户名或密码不对")
             token = self._make_session(conn, row["id"])
             conn.commit()
+        _clear_login_failures(ip)
         self._send_json(_public_user(row), set_cookie=self._cookie_header(token))
 
     def _logout(self):

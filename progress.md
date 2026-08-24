@@ -117,7 +117,31 @@ Per `ROADMAP.md`, roughly in order:
 - No Docker/systemd yet (Linux still needs a manual reverse-proxy/systemd
   setup, see ROADMAP.md)
 - Channel config requires a server restart to take effect (not hot-reloaded)
-- No login rate limiting yet (tracked in ROADMAP.md's SECURITY.md item)
 - API tokens have no scoping: a token can do anything that user's session
   can do, not just create entries (matches the "good enough lock" bar, not
   enterprise IAM, documented in docs/architecture.md)
+
+## 2026-08-24: public exposure, rate limiting, SECURITY.md
+
+June wants to expose her instance to the public internet via Tailscale
+Funnel for an X demo. Vercel was considered and rejected: serverless with
+an ephemeral filesystem is fundamentally incompatible with local-SQLite
+storage, would require rewriting the storage layer, not worth it.
+
+Added before going public:
+- Login and invite-code rate limiting: 5 failed attempts per IP locks that
+  IP out for 5 minutes (`_login_rate_limited`/`_record_login_failure` in
+  ourfeed.py). Verified: 6th failed login attempt correctly 429s, IP-based
+  (not username-based) so rotating usernames from one IP doesn't bypass it,
+  confirmed by testing a second username sharing the same lockout.
+- `SECURITY.md`: states the threat model plainly (small trusted group,
+  invite-only, rate limited but not hardened against sustained attack),
+  with an explicit checklist for exposing an instance publicly
+  (`cookie_secure: true`, use a disposable demo instance rather than a real
+  one, don't hand out invite codes casually).
+- README links to SECURITY.md from the Account model section.
+
+Not yet done: Tailscale Funnel needs to be enabled at the tailnet admin
+level (one-time action only June can do, link provided), and a decision on
+whether to expose her real 8732 instance or spin up a separate clean demo
+instance with sample content is still open.

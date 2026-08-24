@@ -96,6 +96,9 @@ anything reachable outside your own machine).
 - Sessions are plain server-side tokens in a cookie (`HttpOnly`,
   `SameSite=Lax`), not JWTs, since this is a small-scale, self-hosted tool
   and not an IAM system.
+- Login and registration are rate limited (5 failed attempts per IP locks
+  it out for 5 minutes). See [SECURITY.md](SECURITY.md) for the full threat
+  model, especially before exposing an instance to the public internet.
 
 ## Architecture
 
