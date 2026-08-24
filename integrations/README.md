@@ -44,6 +44,16 @@ token, tell it "when you finish something worth sharing, POST a draft to
 Ourfeed," and it lands in your drafts for you to confirm. There's nothing
 Ourfeed-specific to install on the agent side, it's a plain HTTP call.
 
-No prebuilt agent hook ships in this repo yet since agent tooling varies a
-lot between setups. If you build one, a PR that adds a short, working
-example here (not just a description) is welcome.
+## Claude Code companion
+
+[`claude-code-companion/`](claude-code-companion/) has a working, self-contained
+example for Claude Code specifically: a script that scans your local session
+logs and drafts posts based on what actually happened (realizations,
+finished milestones, curiosity tangents, quotable lines, plus an optional
+daily activity digest), and a pattern for making the live "ask your assistant
+directly" flow persistent instead of something you re-paste every session.
+Only needs the `claude` CLI, no other dependencies.
+
+Other agents don't have an equivalent here yet, agent tooling and memory
+mechanisms vary too much to write one generically. If you build one, a PR
+that adds a short, working example (not just a description) is welcome.

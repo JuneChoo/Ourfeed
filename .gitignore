@@ -5,3 +5,6 @@ config.json
 *.db-journal
 .env
 *.log
+integrations/claude-code-companion/config.env
+integrations/claude-code-companion/.ourfeed-extract-state.json
+integrations/claude-code-companion/.ourfeed-category-map.json
