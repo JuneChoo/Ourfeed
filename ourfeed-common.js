@@ -227,7 +227,7 @@ const I18N = {
 function getLang() {
   const saved = localStorage.getItem("of_lang");
   if (saved) return saved;
-  return (navigator.language || "").toLowerCase().startsWith("zh") ? "zh" : "en";
+  return "en";
 }
 let LANG = getLang();
 
