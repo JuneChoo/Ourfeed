@@ -15,17 +15,31 @@ the moment.
 This is the "Option A" flow from `/automation.html`, made persistent instead
 of something you paste in every new chat.
 
+**Don't put your raw token in the instructions file below.** `.claude/`
+folders and `CLAUDE.md` files get committed to git more often than people
+expect, most dotfiles setups don't gitignore them by default, and a token
+in git history is a token you can't really revoke your way out of. Put it
+somewhere that's actually kept out of version control and have the
+instructions file reference that location instead:
+
 1. Generate a token from `/automation.html`.
-2. Create a memory/instructions file for Claude Code, for example
+2. Store the token somewhere gitignored, not in the instructions file
+   itself. Two easy options:
+   - An env var (`export OURFEED_TOKEN=...` in your shell profile), or
+   - A small file outside any git repo, e.g. `~/.config/ourfeed-token`, with
+     the token as its only contents
+3. Create a memory/instructions file for Claude Code, for example
    `.claude/ourfeed-share.md` in a project you work in a lot, or somewhere in
    your global Claude config if you want it everywhere. Content:
 
    ```markdown
    When something in our conversation is worth sharing (see categories below),
-   draft it to Ourfeed without waiting to be asked:
+   draft it to Ourfeed without waiting to be asked. Read the token from
+   $OURFEED_TOKEN (or ~/.config/ourfeed-token, wherever you stored it), don't
+   ask me for it:
 
    curl -s -X POST <your Ourfeed URL>/api/entries \
-     -H "Authorization: Bearer <your token>" \
+     -H "Authorization: Bearer $OURFEED_TOKEN" \
      -H "Content-Type: application/json" \
      --data-binary @<tempfile>.json
 
@@ -37,9 +51,10 @@ of something you paste in every new chat.
    Sanitization: hide specific numbers/names/internal details, never include
    credentials, don't invent emotions or hours worked, write in first person.
    ```
-3. Reference that file from your `CLAUDE.md` (the same way you'd reference any
+4. Reference that file from your `CLAUDE.md` (the same way you'd reference any
    other persistent instruction) so it loads automatically in new sessions,
-   instead of you pasting it by hand every time.
+   instead of you pasting it by hand every time. Check that whatever directory
+   holds it is actually gitignored if it's inside a repo you'll push.
 
 This only works if the assistant you're using can actually make HTTP requests
 on its own (Claude Code can, since it can run shell commands). If yours can't,
