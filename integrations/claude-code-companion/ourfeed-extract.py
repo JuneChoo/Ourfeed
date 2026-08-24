@@ -247,6 +247,26 @@ def find_today_sessions():
     return sessions
 
 
+def find_sessions_for_date(target_date):
+    """Sessions with mtime falling on a specific day (local time), for
+    backfilling or testing a day other than today."""
+    if not CLAUDE_PROJECTS_DIR.exists():
+        return []
+    start = datetime.combine(target_date, datetime.min.time())
+    end = start + timedelta(days=1)
+    sessions = []
+    for jsonl in CLAUDE_PROJECTS_DIR.rglob("*.jsonl"):
+        if "subagents" in str(jsonl):
+            continue
+        try:
+            mtime = datetime.fromtimestamp(jsonl.stat().st_mtime)
+            if start <= mtime < end:
+                sessions.append(jsonl)
+        except Exception:
+            continue
+    return sessions
+
+
 # ── LLM call (Claude CLI only, keeps this dependency-free) ─────────────
 
 def call_llm(prompt):
@@ -312,10 +332,14 @@ the filter, not you.
 ## What counts (any of these four, generate one candidate per match, a session can have several)
 
 ### B: A shift in understanding
-The person moved from uncertain/confused to clearly resolved on something, and it's
-the kind of realization they'd likely want to see again later. This has to be
-something they said explicitly ("I get it now", "actually I think..."), not just a
-conversation that felt deep to you.
+The person moved from uncertain/confused to clearly resolved on something. This has
+to be something they said explicitly ("I get it now", "actually I think..."), not
+just a conversation that felt deep to you. **The bar isn't "did understanding
+shift", it's "is this shift worth keeping"** (learned from real feedback: a draft
+got rejected not because it was poorly written but because the realization itself
+wasn't interesting enough): ask yourself whether the person would actually feel
+like they lost something if this wasn't recorded, not just whether the reasoning
+holds up. A small "oh I see" moment doesn't qualify on its own.
 
 ### D: A finished milestone
 They explicitly said something is done, shipped, or decided, and it has real weight
@@ -455,9 +479,10 @@ def process_session(jsonl_path, state, base_url, token, channel_ids):
     return candidates
 
 
-def extract_digest(base_url, token, channel_ids):
-    sessions = find_today_sessions()
-    print(f"Found {len(sessions)} sessions active today")
+def extract_digest(base_url, token, channel_ids, target_date=None):
+    sessions = find_sessions_for_date(target_date) if target_date else find_today_sessions()
+    label = target_date.isoformat() if target_date else "today"
+    print(f"Found {len(sessions)} sessions active on {label}")
     if not sessions:
         return []
 
@@ -504,7 +529,8 @@ def extract_digest(base_url, token, channel_ids):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--session", help="Process one session file")
-    parser.add_argument("--batch", action="store_true", help="Generate today's activity digest")
+    parser.add_argument("--batch", action="store_true", help="Generate an activity digest")
+    parser.add_argument("--date", help="With --batch, target a specific date (YYYY-MM-DD) instead of today, e.g. to backfill a missed day")
     parser.add_argument("--dry-run", action="store_true", help="Print candidates without posting them")
     args = parser.parse_args()
 
@@ -528,7 +554,8 @@ def main():
         candidates = process_session(path, state, base_url, token, channel_ids)
         save_state(state)
     else:
-        candidates = extract_digest(base_url, token, channel_ids)
+        target_date = datetime.strptime(args.date, "%Y-%m-%d").date() if args.date else None
+        candidates = extract_digest(base_url, token, channel_ids, target_date=target_date)
 
     if not candidates:
         print("\nNo candidates found")

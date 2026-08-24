@@ -70,6 +70,7 @@ what it finds. Two modes:
 cp config.example.env config.env   # fill in OURFEED_URL and OURFEED_TOKEN
 python ourfeed-extract.py --session <path/to/session.jsonl>   # one conversation
 python ourfeed-extract.py --batch                              # today, combined
+python ourfeed-extract.py --batch --date 2026-08-23             # a specific day instead of today
 python ourfeed-extract.py --session <path> --dry-run           # preview only
 ```
 
