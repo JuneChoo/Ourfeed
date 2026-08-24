@@ -61,7 +61,27 @@ admin invite codes), no console errors.
   agent can post drafts under their account. This is the actual reason the
   opt-out review model exists (catching unreviewed automated content), so
   it's positioned as a core feature in the README, not an optional extra.
-  `integrations/README.md` has working curl/Python examples.
+  `automation.html` itself is a real three-path walkthrough now (ask your
+  AI assistant / no-code tool / write it yourself), not just a code block,
+  generating a token auto-fills the real value into all three examples for
+  that page visit.
+- `GET /api/entries/mine?status=`: the current user's own entries in any
+  state (draft/shared/private), needed so an automation script can check
+  what happened to a draft it created earlier. Also the data source for a
+  future "private archive" view.
+- `integrations/claude-code-companion/`: a real, working, self-contained
+  script (not just a description) that scans local Claude Code session
+  logs and drafts posts based on realizations/milestones/curiosity
+  tangents/quotable lines, plus a daily digest mode. Only needs the
+  `claude` CLI, no shared config module or multi-provider LLM setup, so it
+  actually runs for someone who just cloned the repo. Verified end-to-end
+  against a throwaway instance (extraction, posting, and the
+  privatize-driven negative-example feedback loop all work). Caught two
+  real bugs while testing: the CLI refuses to launch from inside another
+  Claude Code session unless `CLAUDECODE` is unset in the subprocess env,
+  and small/fast models don't reliably follow the "no em dashes" prompt
+  instruction, now enforced mechanically after generation instead of
+  trusted to the prompt alone.
 - `ROADMAP.md`: what's needed between now and a public v1.0 launch on X
 - `start.bat` / `stop.bat` / `start-ourfeed.vbs`: Windows autostart, ported
   from yon-board's pattern but with the install path derived at runtime
