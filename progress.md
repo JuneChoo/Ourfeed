@@ -7,6 +7,38 @@ license auto-detected from LICENSE, topics set: self-hosted/feed/python/
 sqlite/twitter-clone/ai-agent). Tagged and released as
 [v1.0.0](https://github.com/JuneChoo/Ourfeed/releases/tag/v1.0.0).
 
+**Public demo is live end-to-end as of 2026-08-25**:
+[https://ourfeed.vercel.app](https://ourfeed.vercel.app) (static, Vercel
+Hobby, no card) reads from June's real backend at
+`https://desktop-tmihhmm.tailf567fb.ts.net` (Tailscale Funnel, port 8732)
+via the new public read-only API. Verified working in a real browser, not
+just curl. Backend must stay running with
+`OURFEED_CORS_ORIGIN=https://ourfeed.vercel.app` set (now baked into
+`start.bat`) for the Vercel page to be able to read it; when the backend is
+off, the page falls back to a bundled static snapshot instead of breaking.
+
+Two real bugs surfaced and fixed while testing this through Funnel (neither
+was visible testing same-origin/localhost, only through the relay):
+1. **Missing `Content-Length`** on JSON responses — `_send_json` relied on
+   connection-close framing, which Funnel's proxy re-wrapped as chunked
+   encoding that Chrome's `fetch()` sometimes never resolved as complete
+   (curl tolerated it fine, hiding the bug). Fixed by computing and sending
+   `Content-Length` explicitly.
+2. **`protocol_version` defaulted to HTTP/1.0`** (connection-per-request),
+   while Funnel keeps persistent connections to the origin and reuses them,
+   causing hangs on reused connections. Set `protocol_version = "HTTP/1.1"`
+   on `BoardHandler`, which needs (1) to be well-defined.
+Both are real correctness fixes independent of this deploy, not
+Vercel/Funnel-specific hacks.
+
+**Invite codes are now multi-use** (2026-08-25, for launch/promo sharing):
+admin sets a `max_uses` when generating a code (default 1, same as before).
+New `invite_code_uses` table tracks each redemption; old `used_by`/
+`used_at` columns on `invite_codes` are legacy, migrated on startup, no
+longer written to. Tested end-to-end against the real DB with a temporary
+max_uses=2 code (2 registrations succeeded, 3rd correctly rejected), test
+data cleaned up after.
+
 ## Current state (2026-08-24)
 
 Phase 1 (accounts + config-driven channels) and a bilingual UI pass are both
