@@ -65,10 +65,13 @@ const I18N = {
     err_register_failed: "Registration failed",
 
     admin_section_title: "Invite codes",
-    admin_section_sub: "Generate a code so a new person can register. Each code works once.",
+    admin_section_sub: "Generate a code so new people can register. You choose how many people each code can be used by.",
     btn_generate: "+ Generate invite code", empty_invites: "No invite codes yet",
     used_by: "used by {name}", unused: "unused", admin_only: "Only admins can see this page.",
     prompt_new_code: "New invite code (copy it and send to the person you're inviting):",
+    prompt_max_uses: "How many people can use this code? (1 = normal one-time invite)",
+    err_max_uses_invalid: "Enter a whole number, 1 or more",
+    uses_count: "{used}/{max} used",
 
     automation_section_title: "Automation",
     automation_section_sub: "Let a script or AI agent post drafts on your behalf, using your own account.",
@@ -173,10 +176,13 @@ const I18N = {
     err_register_failed: "注册失败",
 
     admin_section_title: "邀请码",
-    admin_section_sub: "生成一个邀请码给新成员注册，每个码只能用一次。",
+    admin_section_sub: "生成邀请码给新成员注册，每个码能被多少人用由你决定。",
     btn_generate: "+ 生成邀请码", empty_invites: "还没有邀请码",
     used_by: "已被 {name} 使用", unused: "未使用", admin_only: "只有管理员能看这个页面。",
     prompt_new_code: "新邀请码（复制发给你要邀请的人）：",
+    prompt_max_uses: "这个码最多允许几个人用？（填1就是普通的一次性邀请码）",
+    err_max_uses_invalid: "请填一个大于等于1的整数",
+    uses_count: "已用 {used}/{max}",
 
     automation_section_title: "自动化",
     automation_section_sub: "让脚本或AI用你自己的账号帮你存草稿。",

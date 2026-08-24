@@ -89,7 +89,19 @@ CREATE TABLE IF NOT EXISTS invite_codes (
     created_by INTEGER NOT NULL REFERENCES users(id),
     used_by INTEGER REFERENCES users(id),
     created_at TEXT NOT NULL,
-    used_at TEXT
+    used_at TEXT,
+    max_uses INTEGER NOT NULL DEFAULT 1
+);
+
+-- One row per redemption, so a code can be shared by more than one person
+-- (max_uses > 1) while still showing who actually used it. used_by/used_at
+-- above are legacy (pre-multi-use) columns, kept for old rows, no longer
+-- written to.
+CREATE TABLE IF NOT EXISTS invite_code_uses (
+    code TEXT NOT NULL REFERENCES invite_codes(code),
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    used_at TEXT NOT NULL,
+    PRIMARY KEY (code, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -168,6 +180,17 @@ def _db():
 def _init_db():
     with closing(_db()) as conn:
         conn.executescript(SCHEMA)
+        # Migration for DBs created before multi-use invite codes existed:
+        # add the new column, then backfill invite_code_uses from the old
+        # single-use used_by/used_at columns so already-redeemed codes still
+        # count correctly against their (now-default) max_uses of 1.
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(invite_codes)")}
+        if "max_uses" not in cols:
+            conn.execute("ALTER TABLE invite_codes ADD COLUMN max_uses INTEGER NOT NULL DEFAULT 1")
+        conn.execute(
+            "INSERT OR IGNORE INTO invite_code_uses (code, user_id, used_at) "
+            "SELECT code, used_by, used_at FROM invite_codes WHERE used_by IS NOT NULL"
+        )
         conn.commit()
 
 
@@ -201,6 +224,14 @@ class BoardError(Exception):
 
 
 class BoardHandler(http.server.SimpleHTTPRequestHandler):
+    # Default is HTTP/1.0 (connection closes after every response). Funnel's
+    # reverse proxy keeps a persistent connection open to this origin and
+    # reuses it, so without this the second request on a reused connection
+    # hangs forever waiting on a socket the origin already closed. Requires
+    # every response to declare Content-Length (see _send_json), which is
+    # what actually makes HTTP/1.1 keep-alive framing unambiguous.
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(BOARD_DIR), **kwargs)
 
@@ -329,7 +360,7 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 self._logout()
                 return
             if path == "/api/invite-codes":
-                self._create_invite_code()
+                self._create_invite_code(self._read_json_body())
                 return
             if path == "/api/tokens":
                 self._create_token(self._read_json_body())
@@ -422,9 +453,10 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 if not invite_code:
                     raise BoardError(400, "需要邀请码")
                 invite_row = conn.execute(
-                    "SELECT * FROM invite_codes WHERE code = ? AND used_by IS NULL", (invite_code,)
+                    "SELECT ic.*, (SELECT COUNT(*) FROM invite_code_uses WHERE code = ic.code) AS use_count "
+                    "FROM invite_codes ic WHERE code = ?", (invite_code,)
                 ).fetchone()
-                if not invite_row:
+                if not invite_row or invite_row["use_count"] >= invite_row["max_uses"]:
                     _record_login_failure(ip)
                     raise BoardError(400, "邀请码无效或已被使用")
 
@@ -441,8 +473,8 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
             user_id = cur.lastrowid
             if invite_row:
                 conn.execute(
-                    "UPDATE invite_codes SET used_by = ?, used_at = ? WHERE code = ?",
-                    (user_id, now, invite_code),
+                    "INSERT INTO invite_code_uses (code, user_id, used_at) VALUES (?, ?, ?)",
+                    (invite_code, user_id, now),
                 )
             token = self._make_session(conn, user_id)
             conn.commit()
@@ -474,26 +506,37 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 conn.commit()
         self._send_json({"ok": True}, set_cookie=self._cookie_header("", clear=True))
 
-    def _create_invite_code(self):
+    def _create_invite_code(self, body):
+        max_uses = body.get("max_uses", 1)
+        if not isinstance(max_uses, int) or not (1 <= max_uses <= 10000):
+            raise BoardError(400, "max_uses 得是 1 到 10000 之间的整数")
         with closing(_db()) as conn:
             admin = self._require_admin(conn)
             code = secrets.token_urlsafe(6)
             conn.execute(
-                "INSERT INTO invite_codes (code, created_by, created_at) VALUES (?, ?, ?)",
-                (code, admin["id"], _now()),
+                "INSERT INTO invite_codes (code, created_by, created_at, max_uses) VALUES (?, ?, ?, ?)",
+                (code, admin["id"], _now(), max_uses),
             )
             conn.commit()
-        self._send_json({"code": code}, status=201)
+        self._send_json({"code": code, "max_uses": max_uses}, status=201)
 
     def _list_invite_codes(self):
         with closing(_db()) as conn:
             self._require_admin(conn)
             rows = conn.execute(
-                "SELECT ic.code, ic.created_at, ic.used_at, u.username AS used_by_username "
-                "FROM invite_codes ic LEFT JOIN users u ON u.id = ic.used_by "
-                "ORDER BY ic.created_at DESC"
+                "SELECT ic.code, ic.created_at, ic.max_uses FROM invite_codes ic ORDER BY ic.created_at DESC"
             ).fetchall()
-        self._send_json([dict(r) for r in rows])
+            codes = [dict(r) for r in rows]
+            uses = conn.execute(
+                "SELECT icu.code, icu.used_at, u.display_name FROM invite_code_uses icu "
+                "JOIN users u ON u.id = icu.user_id ORDER BY icu.used_at"
+            ).fetchall()
+        uses_by_code = {}
+        for u in uses:
+            uses_by_code.setdefault(u["code"], []).append({"display_name": u["display_name"], "used_at": u["used_at"]})
+        for c in codes:
+            c["uses"] = uses_by_code.get(c["code"], [])
+        self._send_json(codes)
 
     def _create_token(self, body):
         """API token: 跟登录 session 分开的凭据，给脚本/AI agent 这类不走浏览器的调用方用。

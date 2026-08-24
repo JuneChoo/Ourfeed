@@ -19,7 +19,9 @@ Python's standard library and SQLite.
   `docker compose up` if you'd rather not touch Python at all. No `pip
   install`, no external database either way.
 - **Invite-only accounts.** Real username/password accounts, no email or SMTP
-  required, since an admin hands out one-time invite codes instead.
+  required, since an admin hands out invite codes instead. Codes default to
+  one-time use, but an admin can set a higher limit per code (e.g. for
+  sharing one code with a group).
 - **Built for AI-assisted posting.** Generate a personal API token from
   `/automation.html` and let a script or an AI agent post drafts on your
   behalf. This is the actual reason the opt-out review model exists: it's

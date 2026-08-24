@@ -51,12 +51,18 @@ async function loadInvites() {
       list.innerHTML = `<div class="empty-state">${t("empty_invites")}</div>`;
       return;
     }
-    list.innerHTML = rows.map(r => `
+    list.innerHTML = rows.map(r => {
+      const usedCount = r.uses.length;
+      const names = r.uses.map(u => u.display_name).join(", ");
+      const status = usedCount === 0
+        ? t("unused")
+        : t("uses_count", { used: usedCount, max: r.max_uses }) + (names ? ` · ${names}` : "");
+      return `
       <div class="invite-row">
         <code>${r.code}</code>
-        ${r.used_at ? `<span class="used">${t("used_by", { name: r.used_by_username })}</span>` : `<span>${t("unused")}</span>`}
-      </div>
-    `).join("");
+        <span class="${usedCount > 0 ? "used" : ""}">${status}</span>
+      </div>`;
+    }).join("");
   } catch (e) {
     showError(e.message);
   }
@@ -65,8 +71,16 @@ async function loadInvites() {
 function onLangChanged() { loadInvites(); }
 
 async function generateCode() {
+  const raw = prompt(t("prompt_max_uses"), "1");
+  if (raw === null) return;
+  const maxUses = parseInt(raw, 10);
+  if (!Number.isInteger(maxUses) || maxUses < 1) { alert(t("err_max_uses_invalid")); return; }
   try {
-    const { code } = await api("/api/invite-codes", { method: "POST" });
+    const { code } = await api("/api/invite-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ max_uses: maxUses }),
+    });
     await loadInvites();
     prompt(t("prompt_new_code"), code);
   } catch (e) {
