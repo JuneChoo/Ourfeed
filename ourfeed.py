@@ -776,14 +776,16 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
             raise BoardError(400, "请求体不是合法 JSON")
 
     def _send_json(self, data, status=200, set_cookie=None, cors=False):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         if set_cookie:
             self.send_header("Set-Cookie", set_cookie)
         if cors and CORS_ORIGIN:
             self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
         self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        self.wfile.write(body)
 
     def _send_error_json(self, status, message):
         self._send_json({"error": message}, status=status)
