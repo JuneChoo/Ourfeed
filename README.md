@@ -71,7 +71,7 @@ Edit `config.json`:
 ```json
 {
   "site_name": "Ourfeed",
-  "tagline": { "en": "A feed for the people who care where you're headed, inner and outer", "zh": "只讲给真正在乎你走到哪儿了的人听，精神和现实都算" },
+  "tagline": { "en": "A feed for the people who care where you're headed, inner and outer", "zh": "分享给真正在乎你的人" },
   "port": 8731,
   "cookie_secure": false,
   "channels": [

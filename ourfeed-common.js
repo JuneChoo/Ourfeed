@@ -86,7 +86,7 @@ const I18N = {
     copied_label: "Copied",
 
     path_a_title: "Option A: Ask your AI assistant",
-    path_a_intro: "If you already talk to an AI assistant that can make web requests (Claude Code, ChatGPT with tools/actions enabled, or similar), this is the easiest path. No coding required, you're just giving it instructions in plain English.",
+    path_a_intro: "If you already talk to an AI assistant that can make web requests (Claude Code, ChatGPT with tools/actions enabled, or similar), this is the easiest path. No coding required, you're just giving it instructions in plain English. The message below tells it to draft things on its own judgment rather than wait to be asked, anything it writes still lands in your Drafts for review first.",
     path_a_step1: "Generate a token above and copy it.",
     path_a_step2: "Open a conversation with your AI assistant.",
     path_a_step3: "Paste the message below into the chat.",
@@ -103,7 +103,7 @@ const I18N = {
     path_c_title: "Option C: Write it yourself",
     path_c_intro: "For developers, or to hand to someone you're asking to build this for you.",
 
-    path_a_message: "I want you to help me post updates to my Ourfeed feed. Whenever I ask you to share something, send an HTTP POST request to {origin}/api/entries with these headers: Authorization: Bearer {token}, and Content-Type: application/json. The request body should be JSON like: {title: '...', content: '...', channels: ['work']}. Valid channels are: {channelIds}. Confirm you understand, then wait for me to tell you what to post.",
+    path_a_message: "I want you to help me keep a record on my Ourfeed feed. When you notice something worth sharing in our conversation, something I finished, decided, or figured out, don't wait for me to ask, just send an HTTP POST request to {origin}/api/entries with these headers: Authorization: Bearer {token}, and Content-Type: application/json. The request body should be JSON like: {title: '...', content: '...', channels: ['work']}. Valid channels are: {channelIds}. It lands in my Drafts for me to review before anything goes public, so use your own judgment. Confirm you understand.",
   },
   zh: {
     nav_feed: "📗 动态", nav_drafts: "🗃️ 草稿箱", nav_admin: "🛠️ 管理", nav_automation: "🤖 自动化",
@@ -191,7 +191,7 @@ const I18N = {
     copied_label: "已复制",
 
     path_a_title: "方式A：直接让你的AI助手做",
-    path_a_intro: "如果你已经在跟一个能发网络请求的AI助手对话（比如Claude Code、开了工具/actions能力的ChatGPT等），这是最简单的路，不用写代码，就是拿人话跟它说清楚要干什么。",
+    path_a_intro: "如果你已经在跟一个能发网络请求的AI助手对话（比如Claude Code、开了工具/actions能力的ChatGPT等），这是最简单的路，不用写代码，就是拿人话跟它说清楚要干什么。下面这段话是让它按自己判断主动写，不用等你开口，写的东西照样要先过你的草稿箱审核。",
     path_a_step1: "在上面生成一个token并复制。",
     path_a_step2: "打开跟你的AI助手的对话。",
     path_a_step3: "把下面这段话贴进对话框。",
@@ -208,7 +208,7 @@ const I18N = {
     path_c_title: "方式C：自己写代码",
     path_c_intro: "给开发者看的，或者你要找人帮你做这个的时候直接给他看这段。",
 
-    path_a_message: "我想让你帮我往我的Ourfeed动态流发帖子。以后我让你分享什么的时候，往 {origin}/api/entries 发一个HTTP POST请求，带上这两个请求头：Authorization: Bearer {token}，以及 Content-Type: application/json。请求体用JSON格式，像这样：{title: '...', content: '...', channels: ['work']}。可用的channel有：{channelIds}。确认你明白了，然后等我告诉你要发什么。",
+    path_a_message: "我想让你帮我在Ourfeed上记点东西。你在对话里注意到什么值得记的，比如我做完的事、想明白的事、学到的东西，不用等我开口，直接往 {origin}/api/entries 发一个HTTP POST请求，带上这两个请求头：Authorization: Bearer {token}，以及 Content-Type: application/json。请求体用JSON格式，像这样：{title: '...', content: '...', channels: ['work']}。可用的channel有：{channelIds}。它会先进我的草稿箱，发不发出去我说了算，所以你放心按自己的判断来。确认你明白了。",
   },
 };
 
