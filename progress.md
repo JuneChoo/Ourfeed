@@ -1,5 +1,12 @@
 # Ourfeed progress
 
+## Live
+
+Public repo: https://github.com/JuneChoo/Ourfeed (pushed 2026-08-24, MIT
+license auto-detected from LICENSE, topics set: self-hosted/feed/python/
+sqlite/twitter-clone/ai-agent). Tagged and released as
+[v1.0.0](https://github.com/JuneChoo/Ourfeed/releases/tag/v1.0.0).
+
 ## Current state (2026-08-24)
 
 Phase 1 (accounts + config-driven channels) and a bilingual UI pass are both
@@ -76,13 +83,12 @@ Per `ROADMAP.md`, roughly in order:
 
 1. **Run `docker compose up` against a real Docker install and fix whatever
    breaks** (nothing has actually exercised this yet)
-2. Record a short demo GIF for the top of the README
-3. Push to GitHub, tag `v1.0.0` (needs June to confirm target account/org
-   and repo visibility before this happens, it's a public action)
-4. Post the X launch thread, draft is ready at
-   `d:\Yon\work\drafts\ourfeed-x-launch-2026-08-24.md`, needs June's voice
-   pass and the repo link filled in
-5. `SECURITY.md` and `CONTRIBUTING.md` can trail the launch by a few days
+2. Record a short demo GIF, add it to the top of the README (repo is live
+   now, so the README is what people actually land on)
+3. Post the X launch thread, draft is ready at
+   `d:\Yon\work\drafts\ourfeed-x-launch-2026-08-24.md` with the repo link
+   filled in, still needs June's voice pass before posting
+4. `SECURITY.md` and `CONTRIBUTING.md` can trail the launch by a few days
 
 ## Known gaps / deliberate v1 limits
 
