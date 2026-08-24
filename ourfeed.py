@@ -26,7 +26,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 BOARD_DIR = Path(__file__).parent
 DB_FILE = Path(os.environ.get("OURFEED_DB_PATH", str(BOARD_DIR / "ourfeed.db")))
-CONFIG_FILE = BOARD_DIR / "config.json"
+CONFIG_FILE = Path(os.environ.get("OURFEED_CONFIG_PATH", str(BOARD_DIR / "config.json")))
 CONFIG_EXAMPLE = BOARD_DIR / "config.example.json"
 
 ENTRY_STATUSES = {"draft", "shared", "private"}
@@ -147,7 +147,12 @@ CONFIG = _load_config()
 PORT = int(os.environ.get("OURFEED_PORT", CONFIG.get("port", 8731)))
 CHANNELS = CONFIG["channels"]
 CHANNEL_IDS = {c["id"] for c in CHANNELS}
-COOKIE_SECURE = bool(CONFIG.get("cookie_secure", False))
+_cookie_secure_env = os.environ.get("OURFEED_COOKIE_SECURE")
+COOKIE_SECURE = _cookie_secure_env.lower() in ("1", "true", "yes") if _cookie_secure_env else bool(CONFIG.get("cookie_secure", False))
+# Origin allowed to read the public, no-login endpoints (/api/config, /api/public/feed)
+# cross-origin, e.g. a static frontend deployed separately on Vercel. Unset means
+# same-origin only, no CORS header sent, matches today's behavior.
+CORS_ORIGIN = os.environ.get("OURFEED_CORS_ORIGIN", "")
 
 
 def _now():
@@ -293,6 +298,8 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 self._get_me()
             elif path == "/api/entries":
                 self._list_entries(qs.get("channel", [""])[0])
+            elif path == "/api/public/feed":
+                self._list_public_feed(qs.get("channel", [""])[0])
             elif path == "/api/entries/review":
                 self._list_review(qs.get("channel", [""])[0])
             elif path == "/api/entries/mine":
@@ -381,7 +388,7 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
             "tagline": CONFIG.get("tagline", ""),
             "channels": CHANNELS,
             "bootstrap": not has_users,
-        })
+        }, cors=True)
 
     def _get_me(self):
         with closing(_db()) as conn:
@@ -564,6 +571,19 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
             entries = self._fetch_entries(conn, where, params)
         entries.sort(key=lambda e: e.get("shared_at") or "", reverse=True)
         self._send_json(entries)
+
+    def _list_public_feed(self, channel_filter):
+        """跟 _list_entries 同样只出已发布内容，但不要求登录，给公开只读展示页用
+        （比如部署在别处的静态前端）。回复/发帖仍然要走邀请码注册登录，这里只读。"""
+        with closing(_db()) as conn:
+            where = "e.status = 'shared'"
+            params = []
+            if channel_filter in CHANNEL_IDS:
+                where += " AND e.id IN (SELECT entry_id FROM entry_channels WHERE channel_id = ?)"
+                params.append(channel_filter)
+            entries = self._fetch_entries(conn, where, params)
+        entries.sort(key=lambda e: e.get("shared_at") or "", reverse=True)
+        self._send_json(entries, cors=True)
 
     def _list_review(self, channel_filter):
         """审核页（草稿箱）：当前登录用户自己的全部草稿，老的排前面。"""
@@ -755,11 +775,13 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
         except (json.JSONDecodeError, UnicodeDecodeError):
             raise BoardError(400, "请求体不是合法 JSON")
 
-    def _send_json(self, data, status=200, set_cookie=None):
+    def _send_json(self, data, status=200, set_cookie=None, cors=False):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         if set_cookie:
             self.send_header("Set-Cookie", set_cookie)
+        if cors and CORS_ORIGIN:
+            self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 

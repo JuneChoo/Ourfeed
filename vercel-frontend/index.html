@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ourfeed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ourfeed-common.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="block-icon">⛏️</div>
+    <div class="logo-text pixel-font"><span class="site-name">Ourfeed</span><span class="sub prose tagline"></span></div>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <button class="mc-chip lang-toggle" id="lang-toggle-btn">中文</button>
+    <div class="stat-badge prose" id="stat-badge"></div>
+    <a class="mc-chip" id="login-link" href="#" target="_blank" rel="noopener" data-i18n="btn_login">Log in</a>
+  </div>
+</header>
+
+<main>
+  <div class="section-title pixel-font" data-i18n="feed_section_title">Feed</div>
+  <div class="section-sub" data-i18n="feed_section_sub">Shared on purpose · tap a post to read the whole thing</div>
+  <div class="channel-tabs" id="channel-tabs"></div>
+  <div id="offline-banner" class="offline-banner" style="display:none;" data-i18n="offline_banner"></div>
+  <div id="feed"></div>
+</main>
+
+<script src="deploy-config.js"></script>
+<script src="ourfeed-common.js"></script>
+<script>
+// This page is read-only and never logs in, so it doesn't use initAuth()/api()
+// from ourfeed-common.js (those assume a same-origin session cookie). It talks
+// to the backend directly over OURFEED_API_BASE with plain fetch() and falls
+// back to a bundled static snapshot when that backend is unreachable.
+
+let currentChannel = "";
+let allEntries = [];
+let isOffline = false;
+
+document.getElementById("login-link").href = OURFEED_API_BASE + "/login.html";
+
+async function fetchJsonWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error("bad status " + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadSnapshot() {
+  const res = await fetch("data/snapshot.json");
+  return await res.json();
+}
+
+function renderChannelTabs() {
+  const tabs = document.getElementById("channel-tabs");
+  const active = currentChannel;
+  const all = `<button class="${active === "" ? "active" : ""}" onclick="switchChannel('')" data-i18n="tab_all">${t("tab_all")}</button>`;
+  const rest = (OURFEED_CONFIG.channels || []).map(c =>
+    `<button class="${active === c.id ? "active" : ""}" onclick="switchChannel('${c.id}')">${c.icon || ""} ${channelLabel(c)}</button>`
+  ).join("");
+  tabs.innerHTML = all + rest;
+}
+
+function switchChannel(channel) {
+  currentChannel = channel;
+  renderChannelTabs();
+  renderFeed();
+}
+
+function cardHtml(entry, isReply) {
+  const editedTag = entry.edited_at ? `<span class="edited-tag">${t("edited_tag")}</span>` : "";
+  const replyLink = isReply ? "" : `
+    <div class="card-actions">
+      <a class="mc-chip" href="${OURFEED_API_BASE}/login.html" target="_blank" rel="noopener">
+        ${t("btn_reply")} · ${t("public_reply_prompt")}
+      </a>
+    </div>`;
+  return `
+    <div class="card ${isReply ? "reply" : ""}">
+      <div class="card-top">
+        <div class="card-head" style="--user-color:${entry.author_avatar_color}">${(entry.author_display_name || "?").slice(0,1).toUpperCase()}</div>
+        <div class="card-name">${escapeHtml(entry.author_display_name)}${isReply ? t("reply_suffix") : ""}</div>
+        ${isReply ? "" : channelTagsHtml(entry, false)}
+        ${editedTag}
+        <div class="card-time">${formatRelativeTime(entry.shared_at || entry.created_at)}</div>
+      </div>
+      ${entry.title ? `<div class="card-title">${escapeHtml(localizedField(entry.title))}</div>` : ""}
+      <div class="card-body">${escapeHtml(localizedField(entry.content))}</div>
+      ${replyLink}
+    </div>`;
+}
+
+function renderFeed() {
+  const entries = currentChannel
+    ? allEntries.filter(e => (e.channels || []).includes(currentChannel))
+    : allEntries;
+
+  document.getElementById("stat-badge").textContent = t("stat_shared", { n: entries.length });
+
+  const feed = document.getElementById("feed");
+  if (entries.length === 0) {
+    feed.innerHTML = `<div class="empty-state"><span class="pixel-font">${t("empty_feed_title")}</span>${t("empty_feed_body")}</div>`;
+    return;
+  }
+
+  const byId = {};
+  entries.forEach(e => byId[e.id] = e);
+  const roots = entries.filter(e => !e.parent_id || !byId[e.parent_id]);
+  const repliesByParent = {};
+  entries.forEach(e => {
+    if (e.parent_id && byId[e.parent_id]) {
+      (repliesByParent[e.parent_id] = repliesByParent[e.parent_id] || []).push(e);
+    }
+  });
+  roots.sort((a, b) => (b.shared_at || "").localeCompare(a.shared_at || ""));
+
+  let html = "";
+  roots.forEach(root => {
+    html += cardHtml(root, false);
+    (repliesByParent[root.id] || [])
+      .sort((a, b) => (a.shared_at || "").localeCompare(b.shared_at || ""))
+      .forEach(reply => { html += cardHtml(reply, true); });
+  });
+  feed.innerHTML = html;
+}
+
+function onLangChanged() { renderChannelTabs(); renderFeed(); }
+
+async function boot() {
+  let config, entries;
+  try {
+    [config, entries] = await Promise.all([
+      fetchJsonWithTimeout(OURFEED_API_BASE + "/api/config", 3000),
+      fetchJsonWithTimeout(OURFEED_API_BASE + "/api/public/feed", 3000),
+    ]);
+    isOffline = false;
+  } catch (e) {
+    isOffline = true;
+    const snapshot = await loadSnapshot();
+    config = snapshot.config;
+    entries = snapshot.entries;
+  }
+
+  OURFEED_CONFIG = config;
+  allEntries = entries;
+  document.querySelectorAll(".site-name").forEach(el => el.textContent = config.site_name);
+  initI18n();
+  renderTagline();
+  document.getElementById("offline-banner").style.display = isOffline ? "block" : "none";
+  renderChannelTabs();
+  renderFeed();
+}
+
+boot();
+</script>
+
+</body>
+</html>
