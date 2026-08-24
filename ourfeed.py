@@ -257,6 +257,8 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 self._list_entries(qs.get("channel", [""])[0])
             elif path == "/api/entries/review":
                 self._list_review(qs.get("channel", [""])[0])
+            elif path == "/api/entries/mine":
+                self._list_mine(qs.get("status", [""])[0])
             elif path == "/api/invite-codes":
                 self._list_invite_codes()
             elif path == "/api/tokens":
@@ -527,6 +529,21 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 params.append(channel_filter)
             entries = self._fetch_entries(conn, where, params)
         entries.sort(key=lambda e: e.get("created_at") or "")
+        self._send_json(entries)
+
+    def _list_mine(self, status_filter):
+        """当前用户自己创建的全部条目，不限状态（draft/shared/private都算）。
+        给自动化脚本用来回查"之前存的草稿后来被怎么处理了"，也是"私有档案"这个
+        以后要做的view现在就能用的底层数据源。"""
+        with closing(_db()) as conn:
+            user = self._require_auth(conn)
+            where = "e.author_id = ?"
+            params = [user["id"]]
+            if status_filter in ENTRY_STATUSES:
+                where += " AND e.status = ?"
+                params.append(status_filter)
+            entries = self._fetch_entries(conn, where, params)
+        entries.sort(key=lambda e: e.get("created_at") or "", reverse=True)
         self._send_json(entries)
 
     # ---------------- entries: 写入 ----------------

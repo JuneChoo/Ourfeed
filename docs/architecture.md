@@ -120,6 +120,13 @@ same review step doubles as a safety net for anything posted by automation.
   automated content, not manual replies. Inherits the parent's channels.
 - `GET /api/entries/review?channel={id, optional}`: the current user's own
   drafts, oldest first (so nothing gets buried).
+- `GET /api/entries/mine?status={draft|shared|private, optional}`: the
+  current user's own entries in any state, newest first. Omit `status` for
+  everything. Exists for two reasons: it's the data source for a future
+  "private archive" view (deferred in v1, see below), and it's how an
+  automation script can check what happened to a draft it created earlier
+  (published, still pending, or privatized), which is the basis for any
+  taste-learning loop built on top of the API.
 - `POST /api/entries/{id}/privatize`: permanently private (`status='private'`).
   Not a delete, content is retained, just no longer visible to anyone but
   the author. The feed's "Delete" button is this same action.
