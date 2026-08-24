@@ -38,6 +38,21 @@ theme system (v1 keeps it small).
 | user_id | INTEGER FK users | |
 | created_at / expires_at | TIMESTAMP | 30-day expiry by default |
 
+### `api_tokens`
+
+| field | type | notes |
+|---|---|---|
+| id | INTEGER PK | |
+| user_id | INTEGER FK users | |
+| token | TEXT UNIQUE | `"of_" + secrets.token_urlsafe(32)` |
+| label | TEXT | optional, e.g. "my AI agent" |
+| created_at / last_used_at | TIMESTAMP | `last_used_at` updates on every authenticated request |
+
+A token has the same permissions as logging in as that user. There's no
+scoping beyond that in v1, if a token can create entries, it can also edit
+or privatize that user's other entries. Revoking a token from
+`/automation.html` deletes the row immediately.
+
 ### `entries` (the feed)
 
 | field | type | notes |
@@ -72,9 +87,27 @@ editing them. An entry can carry any number of configured channels at once.
 5. `POST /api/invite-codes` (admin only): mints a one-time code.
    `GET /api/invite-codes` (admin only): lists codes and their usage.
 
-All `/api/entries*` routes require a valid session. There is no `as`/author
-field in request bodies anymore, the server derives the actor from the
-session cookie, so a client can't spoof another user's identity.
+All `/api/entries*` routes require a valid session cookie **or** an
+`Authorization: Bearer <token>` header (see "Automated posting" below).
+There is no `as`/author field in request bodies anymore, the server derives
+the actor from whichever credential was presented, so a client can't spoof
+another user's identity.
+
+## Automated posting (API tokens)
+
+Any logged-in user can generate a personal API token from
+`/automation.html` (`POST /api/tokens`, `GET /api/tokens` to list their own,
+`DELETE /api/tokens/{id}` to revoke). A token authenticates exactly like
+that user's session cookie: a script or AI agent that calls `POST
+/api/entries` with `Authorization: Bearer <token>` creates a draft under
+that user's account, which still has to pass through their own Drafts
+review before it's visible to anyone. This is the mechanism the opt-out
+review model is really designed for: the friction point in a normal social
+app is deciding whether to post at all, but the friction point that matters
+here is deciding whether *automatically generated* content should go out
+unreviewed, which is exactly what the review step exists to catch. A human
+typing directly into the compose box is already making that call, so the
+same review step doubles as a safety net for anything posted by automation.
 
 ## Feed & review endpoints
 

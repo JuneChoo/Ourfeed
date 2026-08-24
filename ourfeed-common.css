@@ -192,7 +192,22 @@ main { max-width: 760px; margin: 0 auto; padding: 26px 18px 120px; }
 .auth-error { background: rgba(230,67,46,0.15); border: 2px solid var(--redstone); color: #b22; padding: 8px 10px; font-family: 'Inter'; font-size: 12px; margin-top: 14px; display: none; }
 .auth-error.show { display: block; }
 
-/* ---- 管理页 ---- */
+/* ---- 管理页 / 自动化页 ---- */
 .invite-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(90,60,20,0.15); font-family: 'Inter'; font-size: 12.5px; }
 .invite-row code { font-family: monospace; background: #fff; padding: 2px 6px; border: 2px solid var(--slot-dark); }
 .invite-row .used { color: #8a7a5c; font-style: italic; }
+.invite-row .row-main { flex: 1; }
+.invite-row .row-meta { color: #8a7a5c; font-size: 11px; margin-top: 2px; }
+
+.rule-box {
+  background: rgba(0,0,0,0.25); border: 2px solid rgba(255,255,255,0.15);
+  padding: 12px 14px; margin-bottom: 20px; font-family: 'Inter'; font-size: 12px;
+  color: #cdbfa0; line-height: 1.6;
+}
+.rule-box b { color: var(--cream); }
+
+.code-block {
+  background: #14120f; border: 2px solid rgba(255,255,255,0.15); color: #d8c9a3;
+  font-family: monospace; font-size: 12px; padding: 14px; margin: 10px 0 20px;
+  white-space: pre-wrap; word-break: break-word; line-height: 1.6;
+}

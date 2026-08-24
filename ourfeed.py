@@ -57,6 +57,15 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    last_used_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     author_id INTEGER NOT NULL REFERENCES users(id),
@@ -159,7 +168,25 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
         morsel = cookie.get(SESSION_COOKIE_NAME)
         return morsel.value if morsel else None
 
+    def _bearer_token(self):
+        auth = self.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            return auth[len("Bearer "):].strip()
+        return None
+
     def _current_user(self, conn):
+        api_token = self._bearer_token()
+        if api_token:
+            row = conn.execute(
+                "SELECT t.id AS token_id, u.* FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE t.token = ?",
+                (api_token,),
+            ).fetchone()
+            if not row:
+                return None
+            conn.execute("UPDATE api_tokens SET last_used_at = ? WHERE id = ?", (_now(), row["token_id"]))
+            conn.commit()
+            return row
+
         token = self._session_token()
         if not token:
             return None
@@ -228,6 +255,8 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 self._list_review(qs.get("channel", [""])[0])
             elif path == "/api/invite-codes":
                 self._list_invite_codes()
+            elif path == "/api/tokens":
+                self._list_tokens()
             elif path == "/":
                 self.path = "/feed.html"
                 super().do_GET()
@@ -250,6 +279,9 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 return
             if path == "/api/invite-codes":
                 self._create_invite_code()
+                return
+            if path == "/api/tokens":
+                self._create_token(self._read_json_body())
                 return
             m = re.fullmatch(r"/api/entries/(\d+)/respond", path)
             if m:
@@ -279,6 +311,17 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
             m = re.fullmatch(r"/api/entries/(\d+)", path)
             if m:
                 self._update_entry(int(m.group(1)), self._read_json_body())
+                return
+            self.send_error(404)
+        except BoardError as e:
+            self._send_error_json(e.status, e.message)
+
+    def do_DELETE(self):
+        path = self.path
+        try:
+            m = re.fullmatch(r"/api/tokens/(\d+)", path)
+            if m:
+                self._revoke_token(int(m.group(1)))
                 return
             self.send_error(404)
         except BoardError as e:
@@ -391,6 +434,41 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 "ORDER BY ic.created_at DESC"
             ).fetchall()
         self._send_json([dict(r) for r in rows])
+
+    def _create_token(self, body):
+        """API token: 跟登录 session 分开的凭据，给脚本/AI agent 这类不走浏览器的调用方用。
+        权限等同本人：拿着 token 调 API 就等于以这个用户身份操作，跟登录态是同一套鉴权。"""
+        label = (body.get("label") or "").strip()
+        with closing(_db()) as conn:
+            user = self._require_auth(conn)
+            token = "of_" + secrets.token_urlsafe(32)
+            conn.execute(
+                "INSERT INTO api_tokens (user_id, token, label, created_at) VALUES (?, ?, ?, ?)",
+                (user["id"], token, label, _now()),
+            )
+            conn.commit()
+        self._send_json({"token": token, "label": label}, status=201)
+
+    def _list_tokens(self):
+        with closing(_db()) as conn:
+            user = self._require_auth(conn)
+            rows = conn.execute(
+                "SELECT id, label, created_at, last_used_at FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC",
+                (user["id"],),
+            ).fetchall()
+        self._send_json([dict(r) for r in rows])
+
+    def _revoke_token(self, token_id):
+        with closing(_db()) as conn:
+            user = self._require_auth(conn)
+            existing = conn.execute(
+                "SELECT id FROM api_tokens WHERE id = ? AND user_id = ?", (token_id, user["id"])
+            ).fetchone()
+            if not existing:
+                raise BoardError(404, "token 不存在")
+            conn.execute("DELETE FROM api_tokens WHERE id = ?", (token_id,))
+            conn.commit()
+        self._send_json({"ok": True})
 
     # ---------------- entries: 读取 ----------------
 

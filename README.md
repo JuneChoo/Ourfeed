@@ -18,6 +18,11 @@ step, no database server, just Python's standard library and SQLite.
   install`, no Docker required (though it's supported), no external database.
 - **Invite-only accounts.** Real username/password accounts, no email or SMTP
   required, since an admin hands out one-time invite codes instead.
+- **Built for AI-assisted posting.** Generate a personal API token from
+  `/automation.html` and let a script or an AI agent post drafts on your
+  behalf. This is the actual reason the opt-out review model exists: it's
+  the safety net for content nobody typed by hand, not just a quirky
+  publishing flow. See [docs/architecture.md](docs/architecture.md#automated-posting-api-tokens).
 - **English and Chinese out of the box.** The whole UI switches languages
   with one click, no server restart needed.
 
@@ -81,16 +86,26 @@ surface.
 
 ## Deployment
 
-Runs anywhere Python 3.9+ runs. For always-on self-hosting, put it behind a
-reverse proxy (Caddy/nginx) with TLS, or run it under `systemd` /
-`supervisord`. Docker Compose support is planned but not in this release yet,
-PRs welcome. See [ROADMAP.md](ROADMAP.md) for what's planned before v1.0.
+Runs anywhere Python 3.9+ runs. Docker Compose support is planned but not in
+this release yet, PRs welcome. See [ROADMAP.md](ROADMAP.md) for what's
+planned before v1.0.
 
-## Optional integrations
+**Windows (always-on):** run `start-ourfeed.vbs` to launch Ourfeed silently
+in the background (no console window). To have it start automatically on
+login, put a shortcut to `start-ourfeed.vbs` in your Startup folder
+(`Win+R` then `shell:startup`), or add it as a Task Scheduler task set to
+run at log on. `stop.bat` stops it. Logs go to `ourfeed.log` in the repo
+folder.
 
-`integrations/` holds examples for wiring Ourfeed into other tools (e.g. an
-AI agent that drafts posts on your behalf via the API). These are examples,
-not core features, Ourfeed works standalone.
+**Linux/macOS (always-on):** put it behind a reverse proxy (Caddy/nginx)
+with TLS if it needs to be reachable from outside your own machine, and run
+the process under `systemd` or `supervisord` so it survives reboots.
+
+## Connecting external tools
+
+`/automation.html` covers letting a script or AI agent post on your behalf
+(see "Built for AI-assisted posting" above). `integrations/` holds working
+examples (curl, Python) for calling the API with a token.
 
 ## What this is not
 
