@@ -1,8 +1,9 @@
 # Ourfeed
 
-A self-hosted, invite-only feed for the people you trust: think a small
-Twitter/X for a family, a household, or a tiny team. No framework, no build
-step, no database server, just Python's standard library and SQLite.
+A self-hosted, invite-only feed for the people who care where you're
+headed, inner and outer: think a small Twitter/X for a family, a household,
+or a tiny team. No framework, no build step, no database server, just
+Python's standard library and SQLite.
 
 ## What makes it different
 
@@ -70,7 +71,7 @@ Edit `config.json`:
 ```json
 {
   "site_name": "Ourfeed",
-  "tagline": { "en": "A shared feed for the people you trust", "zh": "一个只属于信任的人的动态流" },
+  "tagline": { "en": "A feed for the people who care where you're headed, inner and outer", "zh": "只讲给真正在乎你走到哪儿了的人听，精神和现实都算" },
   "port": 8731,
   "cookie_secure": false,
   "channels": [

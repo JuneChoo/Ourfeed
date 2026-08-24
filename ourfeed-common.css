@@ -211,3 +211,15 @@ main { max-width: 760px; margin: 0 auto; padding: 26px 18px 120px; }
   font-family: monospace; font-size: 12px; padding: 14px; margin: 10px 0 20px;
   white-space: pre-wrap; word-break: break-word; line-height: 1.6;
 }
+.code-block-wrap { position: relative; }
+.code-block-wrap .copy-btn { position: absolute; top: 10px; right: 10px; font-size: 9px; padding: 5px 9px; }
+
+.howto-path { margin-top: 32px; }
+.howto-path h3 { font-size: 12px; font-family: 'Silkscreen'; font-weight: 700; color: var(--cream); margin-bottom: 6px; }
+.howto-path .howto-intro { font-family: 'Inter'; font-size: 12px; color: #cdbfa0; line-height: 1.6; margin-bottom: 12px; }
+.howto-path .howto-note { font-family: 'Inter'; font-size: 11px; color: #a89a7c; font-style: italic; margin-top: 4px; }
+.howto-steps { font-family: 'Inter'; font-size: 12.5px; color: #efe6cf; line-height: 1.8; margin: 0 0 10px 20px; }
+
+.field-row { display: flex; gap: 10px; align-items: baseline; font-family: 'Inter'; font-size: 12px; color: #cdbfa0; margin: 4px 0; }
+.field-row .field-label { font-family: 'Silkscreen'; font-weight: 700; color: var(--cream); min-width: 60px; flex-shrink: 0; }
+.field-row code { font-family: monospace; color: #efe6cf; word-break: break-all; }

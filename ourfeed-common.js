@@ -78,8 +78,32 @@ const I18N = {
     btn_revoke: "Revoke",
     confirm_revoke_token: "Revoke this token? Anything using it will stop working immediately.",
     prompt_new_token: "New API token, copy it now, you won't be able to see it again:",
-    automation_howto_title: "How to use it",
-    automation_howto_body: "Send a POST request to /api/entries with an Authorization: Bearer header carrying the token. It behaves exactly like the compose form: drafts land in Drafts for you to review.",
+    automation_howto_title: "How to connect something",
+    automation_howto_body: "Pick whichever of these three matches what you've got. Generate a token above first, the boxes below fill in automatically with the real value for the rest of this visit (reload the page and they go back to a placeholder, for safety).",
+    automation_token_placeholder_note: "Showing a placeholder until you generate a token above.",
+    automation_token_filled_note: "Filled in with your real token. Reload this page and it goes back to a placeholder.",
+    copy_btn: "Copy",
+    copied_label: "Copied",
+
+    path_a_title: "Option A: Ask your AI assistant",
+    path_a_intro: "If you already talk to an AI assistant that can make web requests (Claude Code, ChatGPT with tools/actions enabled, or similar), this is the easiest path. No coding required, you're just giving it instructions in plain English.",
+    path_a_step1: "Generate a token above and copy it.",
+    path_a_step2: "Open a conversation with your AI assistant.",
+    path_a_step3: "Paste the message below into the chat.",
+    path_a_note: "This only works if your assistant can actually send HTTP requests on its own. If it can't, or you're not sure, use Option B instead.",
+
+    path_b_title: "Option B: A no-code automation tool",
+    path_b_intro: "Works with Zapier, Make, n8n, IFTTT, or anything with a generic \"HTTP Request\" or \"Webhook\" action step.",
+    path_b_step1: "Generate a token above and copy it.",
+    path_b_step2: "In your automation tool, add a step called \"HTTP Request\" or \"Webhook\" (the exact name depends on the tool).",
+    path_b_step3: "Fill in these fields exactly:",
+    path_b_step4: "Run it once, then check your Drafts page, the test post should be waiting there.",
+    field_method: "Method", field_url: "URL", field_headers: "Headers", field_body: "Body (JSON)",
+
+    path_c_title: "Option C: Write it yourself",
+    path_c_intro: "For developers, or to hand to someone you're asking to build this for you.",
+
+    path_a_message: "I want you to help me post updates to my Ourfeed feed. Whenever I ask you to share something, send an HTTP POST request to {origin}/api/entries with these headers: Authorization: Bearer {token}, and Content-Type: application/json. The request body should be JSON like: {title: '...', content: '...', channels: ['work']}. Valid channels are: {channelIds}. Confirm you understand, then wait for me to tell you what to post.",
   },
   zh: {
     nav_feed: "📗 动态", nav_drafts: "🗃️ 草稿箱", nav_admin: "🛠️ 管理", nav_automation: "🤖 自动化",
@@ -159,8 +183,32 @@ const I18N = {
     btn_revoke: "撤销",
     confirm_revoke_token: "撤销这个令牌？正在用它的脚本/AI会立刻失效。",
     prompt_new_token: "新API令牌，现在就复制，之后就看不到了：",
-    automation_howto_title: "怎么用",
-    automation_howto_body: "往 /api/entries 发一个POST请求，带上 Authorization: Bearer 令牌 这个请求头，效果跟手动写作框一样，存的草稿一样要你去草稿箱审核。",
+    automation_howto_title: "怎么接进去",
+    automation_howto_body: "看下面三种方式，哪个符合你的情况就用哪个。先在上面生成一个token，下面的框会自动填上真实的token值（仅限这次打开这个页面期间，刷新页面就变回占位符，这是为了安全）。",
+    automation_token_placeholder_note: "在你上面生成token之前，这里先显示占位符。",
+    automation_token_filled_note: "已经帮你填上真实token了，刷新这个页面会变回占位符。",
+    copy_btn: "复制",
+    copied_label: "已复制",
+
+    path_a_title: "方式A：直接让你的AI助手做",
+    path_a_intro: "如果你已经在跟一个能发网络请求的AI助手对话（比如Claude Code、开了工具/actions能力的ChatGPT等），这是最简单的路，不用写代码，就是拿人话跟它说清楚要干什么。",
+    path_a_step1: "在上面生成一个token并复制。",
+    path_a_step2: "打开跟你的AI助手的对话。",
+    path_a_step3: "把下面这段话贴进对话框。",
+    path_a_note: "这只在你的助手真的能自己发HTTP请求时有效。如果做不到或者不确定，改用方式B。",
+
+    path_b_title: "方式B：免代码自动化工具",
+    path_b_intro: "适用于 Zapier、Make、n8n、IFTTT，或者任何带通用“HTTP请求”/“Webhook”动作的工具。",
+    path_b_step1: "在上面生成一个token并复制。",
+    path_b_step2: "在你的自动化工具里加一步“HTTP Request”或“Webhook”（具体叫法看工具而定）。",
+    path_b_step3: "按下面这些字段原样填：",
+    path_b_step4: "跑一次试试，然后去草稿箱页面看，测试帖应该已经在那里等着了。",
+    field_method: "方法（Method）", field_url: "地址（URL）", field_headers: "请求头（Headers）", field_body: "请求体（Body，JSON）",
+
+    path_c_title: "方式C：自己写代码",
+    path_c_intro: "给开发者看的，或者你要找人帮你做这个的时候直接给他看这段。",
+
+    path_a_message: "我想让你帮我往我的Ourfeed动态流发帖子。以后我让你分享什么的时候，往 {origin}/api/entries 发一个HTTP POST请求，带上这两个请求头：Authorization: Bearer {token}，以及 Content-Type: application/json。请求体用JSON格式，像这样：{title: '...', content: '...', channels: ['work']}。可用的channel有：{channelIds}。确认你明白了，然后等我告诉你要发什么。",
   },
 };
 
@@ -213,6 +261,26 @@ function initI18n() {
   applyI18n();
   renderLangToggle();
   document.querySelectorAll(".lang-toggle").forEach(el => el.addEventListener("click", toggleLang));
+}
+
+async function copyText(elementId, btn) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const text = el.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  if (btn) {
+    const original = btn.textContent;
+    btn.textContent = t("copied_label");
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  }
 }
 
 // ---- 全局状态：启动时由 initAuth() 填充 ----

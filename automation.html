@@ -38,23 +38,96 @@
   <button class="btn btn-submit" data-i18n="btn_generate_token" onclick="generateToken()" style="margin-bottom:18px;">+ Generate API token</button>
   <div id="token-list"></div>
 
-  <div class="section-title pixel-font" data-i18n="automation_howto_title" style="margin-top:36px;">How to use it</div>
-  <div class="section-sub" data-i18n="automation_howto_body">Send a POST request to /api/entries with an Authorization: Bearer header.</div>
-  <div class="code-block" id="howto-curl"></div>
-  <div class="code-block" id="howto-python"></div>
+  <div class="section-title pixel-font" data-i18n="automation_howto_title" style="margin-top:36px;">How to connect something</div>
+  <div class="section-sub" data-i18n="automation_howto_body">Pick whichever of these three matches what you've got.</div>
+  <div class="howto-note" id="token-fill-note" style="font-family:'Inter'; font-size:11px; color:#a89a7c; font-style:italic;"></div>
+
+  <!-- Option A: AI assistant -->
+  <div class="howto-path">
+    <h3 data-i18n="path_a_title">Option A: Ask your AI assistant</h3>
+    <div class="howto-intro" data-i18n="path_a_intro">If you already talk to an AI assistant that can make web requests, this is the easiest path.</div>
+    <ol class="howto-steps">
+      <li data-i18n="path_a_step1">Generate a token above and copy it.</li>
+      <li data-i18n="path_a_step2">Open a conversation with your AI assistant.</li>
+      <li data-i18n="path_a_step3">Paste the message below into the chat.</li>
+    </ol>
+    <div class="code-block-wrap">
+      <div class="code-block" id="path-a-message"></div>
+      <button class="mc-chip copy-btn" data-i18n="copy_btn" onclick="copyText('path-a-message', this)">Copy</button>
+    </div>
+    <div class="howto-note" data-i18n="path_a_note">This only works if your assistant can actually send HTTP requests on its own.</div>
+  </div>
+
+  <!-- Option B: no-code tool -->
+  <div class="howto-path">
+    <h3 data-i18n="path_b_title">Option B: A no-code automation tool</h3>
+    <div class="howto-intro" data-i18n="path_b_intro">Works with Zapier, Make, n8n, IFTTT, or anything with an HTTP Request action.</div>
+    <ol class="howto-steps">
+      <li data-i18n="path_b_step1">Generate a token above and copy it.</li>
+      <li data-i18n="path_b_step2">In your automation tool, add an HTTP Request / Webhook step.</li>
+      <li data-i18n="path_b_step3">Fill in these fields exactly:</li>
+    </ol>
+    <div class="field-row"><span class="field-label" data-i18n="field_method">Method</span><code>POST</code></div>
+    <div class="field-row"><span class="field-label" data-i18n="field_url">URL</span><code id="path-b-url"></code></div>
+    <div class="field-row"><span class="field-label" data-i18n="field_headers">Headers</span></div>
+    <div class="code-block-wrap">
+      <div class="code-block" id="path-b-headers"></div>
+      <button class="mc-chip copy-btn" data-i18n="copy_btn" onclick="copyText('path-b-headers', this)">Copy</button>
+    </div>
+    <div class="field-row"><span class="field-label" data-i18n="field_body">Body (JSON)</span></div>
+    <div class="code-block-wrap">
+      <div class="code-block" id="path-b-body"></div>
+      <button class="mc-chip copy-btn" data-i18n="copy_btn" onclick="copyText('path-b-body', this)">Copy</button>
+    </div>
+    <ol class="howto-steps" start="4">
+      <li data-i18n="path_b_step4">Run it once, then check your Drafts page.</li>
+    </ol>
+  </div>
+
+  <!-- Option C: code -->
+  <div class="howto-path">
+    <h3 data-i18n="path_c_title">Option C: Write it yourself</h3>
+    <div class="howto-intro" data-i18n="path_c_intro">For developers, or to hand to someone building this for you.</div>
+    <div class="code-block-wrap">
+      <div class="code-block" id="howto-curl"></div>
+      <button class="mc-chip copy-btn" data-i18n="copy_btn" onclick="copyText('howto-curl', this)">Copy</button>
+    </div>
+    <div class="code-block-wrap">
+      <div class="code-block" id="howto-python"></div>
+      <button class="mc-chip copy-btn" data-i18n="copy_btn" onclick="copyText('howto-python', this)">Copy</button>
+    </div>
+  </div>
 </main>
 
 <script src="ourfeed-common.js"></script>
 <script>
+let lastToken = null; // filled in right after generating a token, so the guides below can show the real value
+
 function showError(msg) {
   document.getElementById("error-area").innerHTML = `<div class="error-banner">${msg}</div>`;
 }
 
 function renderHowTo() {
   const origin = location.origin;
+  const token = lastToken || "<token>";
+  const channelIds = (OURFEED_CONFIG.channels || []).map(c => c.id).join(", ");
+
+  document.getElementById("token-fill-note").textContent =
+    lastToken ? t("automation_token_filled_note") : t("automation_token_placeholder_note");
+
+  document.getElementById("path-a-message").textContent =
+    t("path_a_message", { origin, token, channelIds });
+
+  document.getElementById("path-b-url").textContent = `${origin}/api/entries`;
+  document.getElementById("path-b-headers").textContent =
+`Authorization: Bearer ${token}
+Content-Type: application/json`;
+  document.getElementById("path-b-body").textContent =
+`{"title": "Deployed v1.2", "content": "Shipped the new caching layer.", "channels": ["work"]}`;
+
   document.getElementById("howto-curl").textContent =
 `curl -X POST ${origin}/api/entries \\
-  -H "Authorization: Bearer <token>" \\
+  -H "Authorization: Bearer ${token}" \\
   -H "Content-Type: application/json" \\
   -d '{"title": "Deployed v1.2", "content": "Shipped the new caching layer.", "channels": ["work"]}'`;
 
@@ -62,7 +135,7 @@ function renderHowTo() {
 `import requests
 
 requests.post("${origin}/api/entries",
-    headers={"Authorization": "Bearer <token>"},
+    headers={"Authorization": "Bearer ${token}"},
     json={"title": "Deployed v1.2", "content": "Shipped the new caching layer.", "channels": ["work"]})`;
 }
 
@@ -98,6 +171,8 @@ async function generateToken() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ label }),
     });
+    lastToken = token;
+    renderHowTo();
     await loadTokens();
     prompt(t("prompt_new_token"), token);
   } catch (e) {
