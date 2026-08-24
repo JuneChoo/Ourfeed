@@ -418,13 +418,34 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+// entry title/content can be a plain string, or a JSON-encoded {en, zh}
+// object (same idea as config.json's tagline/channel labels), stored as
+// plain TEXT on the backend since it doesn't know or care about language.
+// Picks the current LANG, falls back to en then zh, and leaves ordinary
+// strings untouched.
+function localizedField(value) {
+  if (typeof value !== "string") return value || "";
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{")) return value;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object" && (parsed.en !== undefined || parsed.zh !== undefined)) {
+      return parsed[LANG] || parsed.en || parsed.zh || "";
+    }
+  } catch (e) {}
+  return value;
+}
+
 // ---- 编辑（草稿/已发布通用） ----
 function openEditModal(id) {
   const entry = entryCache[id];
   if (!entry) return;
   document.getElementById("edit-id").value = id;
-  document.getElementById("edit-title").value = entry.title || "";
-  document.getElementById("edit-content").value = entry.content || "";
+  // Editing shows (and saves back) only the current language, a bilingual
+  // entry that gets edited this way becomes single-language going forward,
+  // that's an acceptable tradeoff rather than building a dual-language editor.
+  document.getElementById("edit-title").value = localizedField(entry.title) || "";
+  document.getElementById("edit-content").value = localizedField(entry.content) || "";
   document.getElementById("edit-modal").classList.add("show");
 }
 function closeEditModal() { document.getElementById("edit-modal").classList.remove("show"); }

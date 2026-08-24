@@ -560,9 +560,18 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
             [(entry_id, c) for c in channel_ids],
         )
 
+    def _normalize_text_field(self, value):
+        """title/content 支持两种输入：普通字符串，或者 {"en":..., "zh":...} 这种
+        双语对象，跟 config.json 里 tagline/channel label 的做法一致。双语对象存进
+        TEXT 列时序列化成 JSON 字符串，前端渲染时自己识别、按当前语言取一个。"""
+        if isinstance(value, dict):
+            cleaned = {k: v.strip() for k, v in value.items() if isinstance(v, str) and v.strip()}
+            return json.dumps(cleaned, ensure_ascii=False) if cleaned else ""
+        return (value or "").strip()
+
     def _create_entry(self, body):
-        title = (body.get("title") or "").strip()
-        content = (body.get("content") or "").strip()
+        title = self._normalize_text_field(body.get("title"))
+        content = self._normalize_text_field(body.get("content"))
         if not content:
             raise BoardError(400, "content 不能为空")
         if not title:
@@ -662,10 +671,10 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
         fields, values = [], []
         touched_content = False
         if "title" in body:
-            fields.append("title = ?"); values.append((body["title"] or "").strip())
+            fields.append("title = ?"); values.append(self._normalize_text_field(body["title"]))
             touched_content = True
         if "content" in body:
-            content = (body["content"] or "").strip()
+            content = self._normalize_text_field(body["content"])
             if not content:
                 raise BoardError(400, "content 不能为空")
             fields.append("content = ?"); values.append(content)

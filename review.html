@@ -131,8 +131,8 @@ function draftCardHtml(entry) {
         ${channelTagsHtml(entry, true)}
         <div class="card-time">${formatRelativeTime(entry.created_at)}</div>
       </div>
-      ${entry.title ? `<div class="card-title">${escapeHtml(entry.title)}</div>` : ""}
-      <div class="card-body">${escapeHtml(entry.content)}</div>
+      ${entry.title ? `<div class="card-title">${escapeHtml(localizedField(entry.title))}</div>` : ""}
+      <div class="card-body">${escapeHtml(localizedField(entry.content))}</div>
       <div class="draft-actions">
         <button class="mc-chip" onclick="openEditModal(${entry.id})">${t("btn_edit")}</button>
         <button class="mc-chip danger" onclick="privatize(${entry.id})">${t("btn_keep_private")}</button>

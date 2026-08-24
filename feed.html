@@ -148,8 +148,8 @@ function cardHtml(entry, isReply) {
         ${editedTag}
         <div class="card-time">${formatRelativeTime(entry.shared_at || entry.created_at)}</div>
       </div>
-      ${entry.title ? `<div class="card-title">${escapeHtml(entry.title)}</div>` : ""}
-      <div class="card-body">${escapeHtml(entry.content)}</div>
+      ${entry.title ? `<div class="card-title">${escapeHtml(localizedField(entry.title))}</div>` : ""}
+      <div class="card-body">${escapeHtml(localizedField(entry.content))}</div>
       ${actions}
     </div>`;
 }
