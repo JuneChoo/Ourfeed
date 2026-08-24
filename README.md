@@ -14,8 +14,9 @@ step, no database server, just Python's standard library and SQLite.
 - **Multi-tag channels.** Every post can carry more than one tag at once
   (e.g. "life" and "work" for someone who's both family and a co-founder to
   you), configurable per deployment, not hardcoded.
-- **Zero dependencies.** `python ourfeed.py` and you're running. No `pip
-  install`, no Docker required (though it's supported), no external database.
+- **Zero dependencies.** `python ourfeed.py` and you're running, or
+  `docker compose up` if you'd rather not touch Python at all. No `pip
+  install`, no external database either way.
 - **Invite-only accounts.** Real username/password accounts, no email or SMTP
   required, since an admin hands out one-time invite codes instead.
 - **Built for AI-assisted posting.** Generate a personal API token from
@@ -35,11 +36,27 @@ cp config.example.json config.json   # optional, edit site name / channels
 python ourfeed.py
 ```
 
+Or with Docker:
+
+```bash
+git clone <this repo>
+cd Ourfeed
+cp config.example.json config.json   # required for the Docker path, see note below
+docker compose up
+```
+
 Open `http://localhost:8731`. The very first account you create becomes the
 admin (no invite code needed). After that, the admin generates invite codes
 from `/admin.html` for anyone else who should join.
 
-Requires Python 3.9+. No other dependencies.
+Requires Python 3.9+ (bare metal) or Docker Compose. No other dependencies.
+
+The Docker Compose file bind-mounts `config.json` from the repo folder, so
+it has to exist before you run `docker compose up` (the bare Python path
+auto-creates it from the example on first launch, Docker's bind mount can't
+do that the same way). The SQLite database lives in a named Docker volume
+(`ourfeed-data`), separate from the code, so `docker compose up` after a
+rebuild doesn't lose your data.
 
 Setting this up for family who aren't on your home network? See
 [docs/family-setup.md](docs/family-setup.md), it covers connecting devices
@@ -86,9 +103,15 @@ surface.
 
 ## Deployment
 
-Runs anywhere Python 3.9+ runs. Docker Compose support is planned but not in
-this release yet, PRs welcome. See [ROADMAP.md](ROADMAP.md) for what's
-planned before v1.0.
+Runs anywhere Python 3.9+ runs, or anywhere Docker runs. See
+[ROADMAP.md](ROADMAP.md) for what's still planned before v1.0 (a published
+image on GHCR, one-click deploy templates).
+
+**Docker (always-on):** `docker compose up -d` runs it detached with
+`restart: unless-stopped`, so it comes back after a reboot or crash as long
+as the Docker daemon itself is set to start on boot (the default on most
+systems). `docker compose logs -f` to follow logs, `docker compose down` to
+stop it.
 
 **Windows (always-on):** run `start-ourfeed.vbs` to launch Ourfeed silently
 in the background (no console window). To have it start automatically on

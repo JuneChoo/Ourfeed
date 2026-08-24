@@ -1,0 +1,12 @@
+services:
+  ourfeed:
+    build: .
+    ports:
+      - "8731:8731"
+    volumes:
+      - ./config.json:/app/config.json
+      - ourfeed-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ourfeed-data:

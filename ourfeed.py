@@ -13,13 +13,17 @@ import re
 import secrets
 import shutil
 import sqlite3
+import sys
 import urllib.parse
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 BOARD_DIR = Path(__file__).parent
-DB_FILE = BOARD_DIR / "ourfeed.db"
+DB_FILE = Path(os.environ.get("OURFEED_DB_PATH", str(BOARD_DIR / "ourfeed.db")))
 CONFIG_FILE = BOARD_DIR / "config.json"
 CONFIG_EXAMPLE = BOARD_DIR / "config.example.json"
 
@@ -694,8 +698,6 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    import sys
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     _init_db()
     print("Ourfeed started")
     print(f"  URL: http://localhost:{PORT}")

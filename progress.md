@@ -25,6 +25,15 @@ admin invite codes), no console errors.
   a bearer token creates a draft with no cookie involved, lands in that
   user's own Drafts queue exactly like a manual post; revoked tokens 401
   immediately; `last_used_at` updates on use
+- `OURFEED_DB_PATH` env var (for Docker's named volume) confirmed working:
+  DB gets created at the custom path, not the default `ourfeed.db` next to
+  the code
+- **Docker packaging itself is NOT verified**, this machine doesn't have
+  Docker installed. The Dockerfile/compose file follow standard patterns
+  and the pieces that don't need Docker (env var override, .dockerignore
+  contents) were tested, but nobody has actually run `docker compose up`
+  against this yet. Do that before relying on it or mentioning it as
+  "tested" anywhere public.
 
 ## What's built
 
@@ -53,17 +62,26 @@ admin invite codes), no console errors.
   clone this to any folder
 - Task/Kanban board from yon-board intentionally not ported, it's not part
   of the "shared feed" positioning per open-source-plan.md's scope
+- `Dockerfile` / `docker-compose.yml` / `.dockerignore`: `python:3.12-alpine`
+  base (nothing to `pip install`), DB path overridable via
+  `OURFEED_DB_PATH` so it can live in a named volume separate from the code,
+  `config.json` bind-mounted from the repo folder. See the untested-Docker
+  note above.
+- X launch copy drafted, kept out of this repo since it's marketing
+  planning not project documentation: `d:\Yon\work\drafts\ourfeed-x-launch-2026-08-24.md`
 
 ## Next steps
 
 Per `ROADMAP.md`, roughly in order:
 
-1. Docker Compose + Dockerfile (highest-leverage gap for the self-hosting
-   crowd, most people evaluating a self-hosted project check for this first)
+1. **Run `docker compose up` against a real Docker install and fix whatever
+   breaks** (nothing has actually exercised this yet)
 2. Record a short demo GIF for the top of the README
-3. Push to GitHub, tag `v1.0.0`
-4. Write and post the X launch thread (lead with the opt-out review
-   mechanism, not the tech stack, see ROADMAP.md's closing note)
+3. Push to GitHub, tag `v1.0.0` (needs June to confirm target account/org
+   and repo visibility before this happens, it's a public action)
+4. Post the X launch thread, draft is ready at
+   `d:\Yon\work\drafts\ourfeed-x-launch-2026-08-24.md`, needs June's voice
+   pass and the repo link filled in
 5. `SECURITY.md` and `CONTRIBUTING.md` can trail the launch by a few days
 
 ## Known gaps / deliberate v1 limits

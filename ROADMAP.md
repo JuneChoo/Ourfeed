@@ -14,6 +14,15 @@ plan to launch publicly on X in mind.
 - MIT licensed, data model and API documented in `docs/architecture.md`
 - A concrete answer to "how does my non-technical family connect,"
   documented in `docs/family-setup.md`
+- Built for AI-assisted posting: personal API tokens so a script or agent
+  can post drafts, documented as a core feature, not a footnote
+- Docker packaging (`Dockerfile` + `docker-compose.yml`), `docker compose up`
+  works as a quickstart next to the bare `python ourfeed.py` path. SQLite
+  data lives in a named volume, separate from the code, so rebuilds don't
+  lose data. **Not yet tested against a real Docker install** (this
+  environment doesn't have Docker), so treat it as needing a first real run
+  before relying on it, see progress.md.
+- Windows autostart (`start.bat` / `stop.bat` / `start-ourfeed.vbs`)
 
 ## Before the first public announcement (v0.9 to v1.0)
 
@@ -23,15 +32,9 @@ an X post actually tries it, in roughly the order they matter.
 1. **A demo people can see in 10 seconds.** A README wall of text won't
    convert. Record a 60 to 90 second screen capture (compose a post, watch
    it move from drafts to the feed, toggle the language) and drop it as a
-   GIF at the very top of the README, above the pitch. This is higher
-   leverage than almost anything else on this list.
-2. **Docker packaging.** A `Dockerfile` and `docker-compose.yml` so
-   `docker compose up` is a valid quickstart next to the bare `python
-   ourfeed.py` path. A large slice of the self-hosting audience (Unraid,
-   Synology, TrueNAS, homelab folks) only evaluates projects that ship a
-   container. Right now this is the single biggest gap between "works for
-   me" and "installable by strangers."
-3. **GitHub repo hygiene**, all cheap, all worth doing before the launch
+   GIF at the very top of the README, above the pitch. This is now the
+   single highest-leverage thing left on this list.
+2. **GitHub repo hygiene**, all cheap, all worth doing before the launch
    post rather than after:
    - Repo description and topics (`self-hosted`, `feed`, `python`,
      `sqlite`) so it surfaces in GitHub's own search
@@ -40,14 +43,14 @@ an X post actually tries it, in roughly the order they matter.
      is pasted into X/Slack/Discord.
    - A tagged `v1.0.0` release with short release notes, not just a
      floating `master` branch. People check for tags as a maturity signal.
-4. **`SECURITY.md`.** This handles passwords and is meant to sit on a home
+3. **`SECURITY.md`.** This handles passwords and is meant to sit on a home
    network or behind Tailscale, so state the threat model plainly: small
    trusted group, not designed to be internet-facing, no login rate
    limiting yet, TLS via a reverse proxy is the deployer's responsibility.
    Self-hosting audiences specifically check for this before trusting a
    project with an account system, and writing it honestly (rather than
    overselling security that isn't there) builds more trust, not less.
-5. **`CONTRIBUTING.md`**, even a short one: how to run it locally, how to
+4. **`CONTRIBUTING.md`**, even a short one: how to run it locally, how to
    file a bug, what kind of PRs are welcome versus out of scope (the "what
    this is not" list in the README is a start). Signals the project is
    maintained and lowers the bar for the first outside contributor.
@@ -73,7 +76,8 @@ marketplace, no multi-tenant/SaaS mode, no task/Kanban board (out of the
 
 ## Suggested order of operations
 
-1. Docker Compose (highest leverage missing piece for the self-hosting crowd)
+1. ~~Docker Compose~~ done, needs a first real test against an actual Docker
+   install before trusting it
 2. Record the demo GIF using the current Minecraft UI
 3. Push to GitHub, tag `v1.0.0`, rebuild the README's opening around the GIF
 4. Launch post on X
