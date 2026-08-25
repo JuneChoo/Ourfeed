@@ -1,5 +1,31 @@
 # Ourfeed progress
 
+## 2026-08-25: real Vercel proxy, Tailscale hostname no longer exposed
+
+June noticed after logging in from the public page, the browser landed on
+`desktop-tmihhmm.tailf567fb.ts.net` — her actual desktop's Tailscale device
+name, visible in the address bar. Fixed properly instead of just renaming
+the device (also did that, `desktop-tmihhmm` -> `ourfeed-node`, Funnel
+re-registered under the new name):
+
+- `vercel-frontend/vercel.json`: rewrites `/api/*`, `/login.html`,
+  `/register.html`, `/feed.html`, `/review.html`, `/admin.html`,
+  `/automation.html` to the real backend. From the browser's POV everything
+  is same-origin on `ourfeed.vercel.app`, the Funnel hostname is never
+  visible, no CORS needed, cookies work without any SameSite changes.
+- `index.html`: fetch calls and login/reply links switched from an absolute
+  `OURFEED_API_BASE` to relative paths, `deploy-config.js` deleted (nothing
+  needs a client-side backend URL anymore).
+- `start.bat`: dropped `OURFEED_CORS_ORIGIN`, no longer needed now that
+  requests to the backend come from Vercel's edge (server-to-server, not
+  subject to browser CORS) rather than directly from the browser.
+- Verified end-to-end in a real browser: public page -> click Reply -> login
+  page -> log in -> lands on `feed.html`, address bar stays on
+  `ourfeed.vercel.app` the entire time. A real external test account (user
+  "test") had already registered and posted a reply before this fix,
+  confirming the underlying auth/reply flow itself was never broken, just
+  the URL exposure.
+
 ## Live
 
 Public repo: https://github.com/JuneChoo/Ourfeed (pushed 2026-08-24, MIT
