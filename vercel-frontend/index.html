@@ -91,7 +91,7 @@ function cardHtml(entry, isReply) {
         <div class="card-name">${escapeHtml(entry.author_display_name)}${isReply ? t("reply_suffix") : ""}</div>
         ${isReply ? "" : channelTagsHtml(entry, false)}
         ${editedTag}
-        <div class="card-time">${formatRelativeTime(entry.shared_at || entry.created_at)}</div>
+        <div class="card-time">${formatRelativeTime(entry.created_at)}</div>
       </div>
       ${entry.title ? `<div class="card-title">${escapeHtml(localizedField(entry.title))}</div>` : ""}
       <div class="card-body">${escapeHtml(localizedField(entry.content))}</div>
@@ -121,13 +121,13 @@ function renderFeed() {
       (repliesByParent[e.parent_id] = repliesByParent[e.parent_id] || []).push(e);
     }
   });
-  roots.sort((a, b) => (b.shared_at || "").localeCompare(a.shared_at || ""));
+  roots.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 
   let html = "";
   roots.forEach(root => {
     html += cardHtml(root, false);
     (repliesByParent[root.id] || [])
-      .sort((a, b) => (a.shared_at || "").localeCompare(b.shared_at || ""))
+      .sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""))
       .forEach(reply => { html += cardHtml(reply, true); });
   });
   feed.innerHTML = html;

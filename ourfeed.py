@@ -613,7 +613,7 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 where += " AND e.id IN (SELECT entry_id FROM entry_channels WHERE channel_id = ?)"
                 params.append(channel_filter)
             entries = self._fetch_entries(conn, where, params)
-        entries.sort(key=lambda e: e.get("shared_at") or "", reverse=True)
+        entries.sort(key=lambda e: e.get("created_at") or "", reverse=True)
         self._send_json(entries)
 
     def _list_public_feed(self, channel_filter):
@@ -626,7 +626,7 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
                 where += " AND e.id IN (SELECT entry_id FROM entry_channels WHERE channel_id = ?)"
                 params.append(channel_filter)
             entries = self._fetch_entries(conn, where, params)
-        entries.sort(key=lambda e: e.get("shared_at") or "", reverse=True)
+        entries.sort(key=lambda e: e.get("created_at") or "", reverse=True)
         self._send_json(entries, cors=True)
 
     def _list_review(self, channel_filter):

@@ -146,7 +146,7 @@ function cardHtml(entry, isReply) {
         ${isReply ? "" : channelTagsHtml(entry, isMine)}
         ${isNew ? `<span class="new-tag">${t("new_tag")}</span>` : ""}
         ${editedTag}
-        <div class="card-time">${formatRelativeTime(entry.shared_at || entry.created_at)}</div>
+        <div class="card-time">${formatRelativeTime(entry.created_at)}</div>
       </div>
       ${entry.title ? `<div class="card-title">${escapeHtml(localizedField(entry.title))}</div>` : ""}
       <div class="card-body">${escapeHtml(localizedField(entry.content))}</div>
@@ -194,13 +194,13 @@ async function loadFeed() {
     }
   });
 
-  roots.sort((a, b) => (b.shared_at || "").localeCompare(a.shared_at || ""));
+  roots.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 
   let html = "";
   roots.forEach(root => {
     html += cardHtml(root, false);
     (repliesByParent[root.id] || [])
-      .sort((a, b) => (a.shared_at || "").localeCompare(b.shared_at || ""))
+      .sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""))
       .forEach(reply => { html += cardHtml(reply, true); });
   });
   feed.innerHTML = html;
