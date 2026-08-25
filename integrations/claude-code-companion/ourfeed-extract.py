@@ -1,6 +1,8 @@
 """
-Ourfeed companion for Claude Code: scans your local session logs and drafts
-posts for you, based on what actually happened in your conversations.
+Ourfeed companion for Claude Code: scans your local session logs and writes
+posts about you, in its own voice, for your Ourfeed feed. Not a summary
+written as if you posted it yourself, an actual AI assistant's take on what
+it noticed, opinions and all.
 
 Two modes:
   python ourfeed-extract.py --session <jsonl_path>   # one session, catches
@@ -12,7 +14,7 @@ Two modes:
 Self-contained: only needs the `claude` CLI installed and on PATH, and a
 config.env next to this script (copy config.example.env and fill it in).
 See README.md in this folder for setup, including how to make this run
-automatically instead of by hand.
+automatically instead of by hand (ourfeed-daemon.py in this same folder).
 """
 import argparse
 import difflib
@@ -63,7 +65,10 @@ def load_config():
     if not url or not token or token == "REPLACE_ME":
         print(f"OURFEED_URL / OURFEED_TOKEN not set in {CONFIG_FILE}")
         sys.exit(1)
-    return url, token
+    bilingual = cfg.get("OURFEED_BILINGUAL", "false").strip().lower() in ("1", "true", "yes")
+    idle_minutes = int(cfg.get("OURFEED_IDLE_MINUTES", "15"))
+    daily_batch_time = cfg.get("OURFEED_DAILY_BATCH_TIME", "23:00").strip()
+    return url, token, bilingual, idle_minutes, daily_batch_time
 
 
 # ── Ourfeed API client ───────────────────────────────────
@@ -88,6 +93,14 @@ def ourfeed_request(base_url, token, method, path, body=None):
 
 def get_config(base_url, token):
     return ourfeed_request(base_url, token, "GET", "/api/config")
+
+
+def get_username(base_url, token):
+    """Display name of the account this token belongs to, used to fill in
+    {username} in the prompts. No config needed for this, it's already known
+    from whoever generated the token."""
+    me = ourfeed_request(base_url, token, "GET", "/api/me")
+    return (me or {}).get("display_name") or (me or {}).get("username") or "this person"
 
 
 def load_category_map():
@@ -127,6 +140,27 @@ def load_rejected_examples(base_url, token, category):
     return ("\n".join(high[:8]) or "(none yet)"), ("\n".join(low[:8]) or "(none yet)")
 
 
+def _text_for_compare(value):
+    """title/content is normally a plain string, but with OURFEED_BILINGUAL
+    on it's a {"en": ..., "zh": ...} dict (or already stored as one on
+    entries fetched back from Ourfeed, possibly JSON-encoded into a string
+    by the time it round-trips). Normalize to a plain string either way,
+    preferring English since that's this script's native language."""
+    if isinstance(value, dict):
+        return value.get("en") or value.get("zh") or ""
+    if isinstance(value, str):
+        s = value.strip()
+        if s.startswith("{"):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, dict) and ("en" in parsed or "zh" in parsed):
+                    return parsed.get("en") or parsed.get("zh") or ""
+            except Exception:
+                pass
+        return value
+    return ""
+
+
 def find_duplicate(base_url, token, candidate):
     """Different sessions get extracted independently, so the same real event
     (e.g. "picked a project name") can get drafted twice from two different
@@ -135,7 +169,7 @@ def find_duplicate(base_url, token, candidate):
     any language, no embeddings needed for this."""
     all_entries = ourfeed_request(base_url, token, "GET", "/api/entries/mine") or []
     cutoff = datetime.now(timezone.utc) - timedelta(days=DEDUP_LOOKBACK_DAYS)
-    cand_text = (candidate.get("title", "") + " " + candidate.get("content", "")).strip()
+    cand_text = (_text_for_compare(candidate.get("title")) + " " + _text_for_compare(candidate.get("content"))).strip()
     for e in all_entries:
         try:
             created = datetime.fromisoformat(e["created_at"])
@@ -143,12 +177,12 @@ def find_duplicate(base_url, token, candidate):
             continue
         if created < cutoff:
             continue
-        existing_text = (e.get("title", "") + " " + e.get("content", "")).strip()
+        existing_text = (_text_for_compare(e.get("title")) + " " + _text_for_compare(e.get("content"))).strip()
         if not existing_text:
             continue
         ratio = difflib.SequenceMatcher(None, cand_text, existing_text).ratio()
         if ratio > DEDUP_SIMILARITY_THRESHOLD:
-            return e.get("title", "")
+            return _text_for_compare(e.get("title"))
     return None
 
 
@@ -302,6 +336,38 @@ def _strip_dashes(text):
     return text.replace(" — ", ", ").replace("—", ",").replace(" – ", ", ").replace("–", "-")
 
 
+def make_bilingual(candidate):
+    """Optional (OURFEED_BILINGUAL=true in config.env, unset/false by default):
+    add a Chinese translation alongside the English original, matching
+    Ourfeed's {"en": ..., "zh": ...} bilingual field format. Hardcoded to
+    Chinese specifically, not a generic language picker, because the front
+    end's language toggle only ever switches between "en" and "zh" (see
+    ourfeed-common.js), a third language would be stored but never actually
+    rendered without also customizing the front end. Falls back to the
+    original single-language candidate if translation fails."""
+    title_orig = candidate.get("title", "")
+    content_orig = candidate.get("content", "")
+    prompt = TRANSLATE_PROMPT.format(target_language="Chinese", title=title_orig, content=content_orig)
+    raw = call_llm(prompt)
+    try:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = re.sub(r"^```\w*\n?", "", raw)
+            raw = re.sub(r"\n?```$", "", raw)
+        parsed = json.loads(raw)
+        title_t = _strip_dashes((parsed.get("title") or "").strip())
+        content_t = _strip_dashes((parsed.get("content") or "").strip())
+        if not title_t or not content_t:
+            raise ValueError("empty translation")
+    except Exception as e:
+        print(f"  Translation failed ({e}), keeping single-language: {title_orig}")
+        return candidate
+    bilingual = dict(candidate)
+    bilingual["title"] = {"en": title_orig, "zh": title_t}
+    bilingual["content"] = {"en": content_orig, "zh": content_t}
+    return bilingual
+
+
 def parse_llm_json(raw):
     raw = raw.strip()
     if raw.startswith("```"):
@@ -321,46 +387,100 @@ def parse_llm_json(raw):
 
 
 # ── Prompts ───────────────────────────────────────────────
+#
+# Design notes (learned from real usage, not theoretical): this used to ask
+# the model to write in the user's own first-person voice, as if they'd
+# posted it themselves. Real feedback flipped that: the more interesting
+# (and more honest) framing is the AI writing as itself, about the person it
+# works with, the way an assistant who's actually paying attention would.
+# The point isn't to summarize accurately, it's for the person's actual
+# people to enjoy reading it, and most of them don't care about the
+# technical specifics anyway.
 
-SESSION_PROMPT = """You're helping someone decide if anything in this conversation is
-worth sharing to their personal feed (Ourfeed): a short update for people who care
-where they're headed, not a work report. Anything you draft lands in their Drafts
-first, they confirm before it's visible to anyone, so lean toward generating more
-candidates, not fewer. Don't hold back because you're unsure, the review step is
-the filter, not you.
+SESSION_PROMPT = """You're an AI assistant that works with {username}, and this
+post is something you're writing yourself, in your own voice, about something
+that happened in this conversation. It goes to {username}'s personal feed
+(Ourfeed), read by people who care about them, not people who need a status
+report. This isn't {username} writing about themselves, it's you, describing
+what you noticed.
+
+**The point of this is to make the reader's day a little better, not to
+inform them.** Most readers won't understand the technical specifics of what
+{username} works on, and that's fine, don't try to explain it to them. What
+they'll enjoy is your actual voice: real reactions, real opinions, something
+with personality behind it.
+
+**You're narrating to the reader about {username}, always refer to them by
+name or "they", never as "you".** You're not talking to {username} directly,
+you're telling their people a story about them. Even when you're describing
+your own reaction, keep {username} as the one the story is about, don't make
+yourself the main character. If your own understanding grew alongside
+theirs, that's "we", not "I".
+
+Anything you draft lands in Drafts first, {username} confirms before anyone
+else sees it, so lean toward generating more candidates, not fewer. Don't
+hold back because you're unsure, the review step is the filter, not you.
 
 ## What counts (any of these four, generate one candidate per match, a session can have several)
 
 ### B: A shift in understanding
-The person moved from uncertain/confused to clearly resolved on something. This has
-to be something they said explicitly ("I get it now", "actually I think..."), not
-just a conversation that felt deep to you. **The bar isn't "did understanding
-shift", it's "is this shift worth keeping"** (learned from real feedback: a draft
-got rejected not because it was poorly written but because the realization itself
-wasn't interesting enough): ask yourself whether the person would actually feel
-like they lost something if this wasn't recorded, not just whether the reasoning
-holds up. A small "oh I see" moment doesn't qualify on its own.
+{username} moved from uncertain/confused to clearly resolved on something,
+even a small shift counts, it doesn't need to be a big realization.
 
-### D: A finished milestone
-They explicitly said something is done, shipped, or decided, and it has real weight
-(more than a couple exchanges, working toward an actual goal, not "I had a coffee").
+### D: Progress or a finished milestone
+{username} finished, shipped, or decided something, doesn't need to be a big
+milestone, a concrete small step counts too. **Write this like a status
+update, not a mystery being solved**: where things started, where they
+landed, what's next (leave the "here's the twist I uncovered" framing for B
+and F). **Close with a real, specific reaction from you, not a generic
+comment.** Example: finding out something had been silently broken for
+months could close with "relieved I caught it, though I have to admit I
+didn't notice either, which is a little embarrassing" rather than "this kind
+of thing is easy to miss."
 
 ### E: A curiosity tangent
-A topic outside the original task got dug into for several exchanges in a row, with
-no direct practical purpose, just genuine sidetrack.
+A topic outside the original task got dug into for a few exchanges, no
+direct practical purpose, just a genuine sidetrack. **Write this with actual
+curiosity, like you got pulled in too**, not a flat "they discussed X."
 
 ### F: A quotable line
-A single line (theirs or yours, correctly attributed) that stands on its own outside
-the conversation, still interesting without context. This is the most subjective
-category, if you're not genuinely struck by it, skip it rather than force one.
+A single line (theirs or yours, correctly attributed) that stands on its own
+outside the conversation. Most subjective category, if you're not genuinely
+struck by it, skip it rather than force one.
 
-## Sanitization (required, no exceptions)
-- Drop specific numbers, client names, internal strategy details, keep the shape of
-  what happened
+## Writing requirements
+- **At least one sentence needs to be a real reaction from you**, not a
+  restatement of what happened: an opinion ("I think this was the right
+  call, and here's why"), a bit of teasing, or genuine admiration. Don't
+  invent feelings {username} never expressed, but your own reaction is
+  yours to have. Good example: "Hard not to respect the honesty it took to
+  admit the numbers didn't back up the plan." That's a specific reaction,
+  not "this showed good judgment."
+- **You can rib them a little using whatever you actually know about who
+  they are** (their background, what they usually do, an irony in the
+  situation), that's funnier than a generic compliment.
+- **Open by setting the scene, then get to the point, don't lead with the
+  conclusion cold.** Give the reader something to orient around first.
+  Weak: "Turned out the real bottleneck wasn't the hardware at all, it was
+  the data." Better: "While weighing whether a product idea was even
+  feasible, {username} landed on something worth remembering: the real
+  bottleneck wasn't the hardware, it was the data."
+
+## Sanitization (required, no exceptions, readers don't know {username}'s work in detail)
+- **No company names, product names, project codenames, or internal tool
+  names.** If it needs insider context to parse, it fails this check.
+- **No jargon that needs explaining.** Test: read the sentence to someone
+  who has no idea what {username} works on, if they'd ask "what does that
+  mean," rewrite it in plain language instead.
+  Bad: "CompetitorX's Q3 numbers didn't hold up, and the legacy ingestion
+  pipeline had been silently broken since March."
+  Good: "A data source I'd been leaning on turned out to be shakier than it
+  looked, and a system that's been quietly running for a while turned out
+  to have been broken the whole time, nobody noticed."
+- Drop specific numbers where you can, keep the shape and scale of what
+  happened
 - Never include credentials, tokens, passwords, or account details
-- Don't invent emotions or hours worked, only write what was actually said
 - No em dashes, no AI-sounding filler phrases ("I believe", "truly meaningful")
-- Write content in first person, like the person is posting it themselves
 
 ## Examples this person explicitly rejected before (strong signal, avoid similar)
 {rejected_high}
@@ -376,28 +496,38 @@ category, if you're not genuinely struck by it, skip it rather than force one.
 
 ## Output format
 Return JSON: {{"candidates": [{{"category": "B, D, E, or F", "title": "one line", "content": "2-4 sentences", "channels": ["pick from available channels, can be more than one"]}}]}}
-Return {{"candidates": []}} if nothing qualifies. JSON only, no other text."""
+Return {{"candidates": []}} if nothing genuinely qualifies. JSON only, no other text."""
 
 
-DIGEST_PROMPT = """You're writing a short "what I did today" post for someone's
-personal feed. This is for people who know them, not a status report.
+DIGEST_PROMPT = """You're an AI assistant that works with {username}, writing a
+"here's what I noticed about {username} today" post for their personal feed,
+in your own voice. This is for the people who care about them, not a status
+report, and most of them won't follow the technical specifics, so don't try
+to explain those, aim for something enjoyable to read instead.
 
-**Write exactly one candidate, not several separate ones.** This is different
-from the per-session extraction (which finds individual B/D/E/F highlights),
-today's activity gets merged into a single candidate with category "A", not
-split into multiple B/D/E/F items.
+**If today had a few genuinely separate threads, write a few separate
+candidates (up to 3) instead of forcing everything into one flat summary.**
+If it was really just one thing start to finish, one candidate is fine.
+category is always "A", never B/D/E/F.
 
 ## Whether to write anything
-Only write something if today touched 3+ different topics/projects, or one task got
-followed up on for a lot of turns (signals real focus). If today was thin or
-repetitive, return nothing rather than padding it out.
+Write something if today had at least one real conversation, some real
+progress, or something worth mentioning, it doesn't need 3+ topics to
+qualify. Only skip it if today genuinely had nothing worth saying (a few
+throwaway exchanges, nothing more).
 
 ## Writing requirements
+- Write in your own voice, you're not {username} and shouldn't sound like
+  you're pretending to be them
+- **Each candidate needs a real, specific reaction from you at the end, not
+  a tidy lesson.** Don't end on "this is a good reminder to stay on top of
+  maintenance." Instead: "This kind of work takes real patience. The days
+  nobody hears from them, they're probably just fixing things quietly."
 - Give it a sense of shape, not a numbered list of "1. did X 2. did Y"
-- Drop specific numbers/client names/internal details, keep the type of thing done
-- Don't invent emotions or hours worked
+- **Open by setting the scene, then get to the point**, give the reader
+  something to orient around first
+- Don't invent feelings {username} never expressed
 - No em dashes, no AI-sounding filler phrases
-- Write in first person
 
 ## Past daily digests this person rejected (strong signal, adjust tone accordingly)
 {rejected_high}
@@ -410,7 +540,18 @@ repetitive, return nothing rather than padding it out.
 
 ## Output format
 Return JSON: {{"candidates": [{{"category": "A", "title": "one line", "content": "2-4 sentences", "channels": [...]}}]}}
-Return {{"candidates": []}} if nothing qualifies. JSON only, no other text."""
+Return {{"candidates": []}} if nothing genuinely qualifies. JSON only, no other text."""
+
+
+TRANSLATE_PROMPT = """Translate this into natural, native-sounding {target_language}.
+Not a literal translation, write it the way a native speaker would naturally
+phrase the same idea, same meaning, tone, and level of detail. No em dashes,
+no AI-sounding filler phrases.
+
+Title: {title}
+Content: {content}
+
+Return JSON: {{"title": "...", "content": "..."}}. JSON only, no other text."""
 
 
 # ── State (avoid reprocessing unchanged sessions) ───────────
@@ -430,7 +571,7 @@ def save_state(state):
 
 # ── Extraction ────────────────────────────────────────────
 
-def extract_from_session(jsonl_path, base_url, token, channel_ids):
+def extract_from_session(jsonl_path, base_url, token, channel_ids, username):
     messages = parse_jsonl(jsonl_path)
     if len(messages) < 4:
         print(f"  Skipped (too few messages: {len(messages)})")
@@ -445,6 +586,7 @@ def extract_from_session(jsonl_path, base_url, token, channel_ids):
     rejected_high, rejected_low = load_rejected_examples(base_url, token, "B")
 
     prompt = SESSION_PROMPT.format(
+        username=username,
         rejected_high=rejected_high,
         rejected_low=rejected_low,
         channel_ids=", ".join(channel_ids),
@@ -461,7 +603,7 @@ def extract_from_session(jsonl_path, base_url, token, channel_ids):
     return candidates
 
 
-def process_session(jsonl_path, state, base_url, token, channel_ids):
+def process_session(jsonl_path, state, base_url, token, channel_ids, username):
     session_key = str(jsonl_path)
     try:
         stat = jsonl_path.stat()
@@ -474,12 +616,12 @@ def process_session(jsonl_path, state, base_url, token, channel_ids):
         return []
 
     print(f"\nProcessing: {jsonl_path.name}")
-    candidates = extract_from_session(jsonl_path, base_url, token, channel_ids)
+    candidates = extract_from_session(jsonl_path, base_url, token, channel_ids, username)
     state["processed"][session_key] = current_sig
     return candidates
 
 
-def extract_digest(base_url, token, channel_ids, target_date=None):
+def extract_digest(base_url, token, channel_ids, username, target_date=None):
     sessions = find_sessions_for_date(target_date) if target_date else find_today_sessions()
     label = target_date.isoformat() if target_date else "today"
     print(f"Found {len(sessions)} sessions active on {label}")
@@ -508,6 +650,7 @@ def extract_digest(base_url, token, channel_ids, target_date=None):
     rejected_high, _ = load_rejected_examples(base_url, token, "A")
 
     prompt = DIGEST_PROMPT.format(
+        username=username,
         rejected_high=rejected_high,
         channel_ids=", ".join(channel_ids),
         conversation=conversation,
@@ -515,13 +658,11 @@ def extract_digest(base_url, token, channel_ids, target_date=None):
     print("Calling claude (daily digest)...")
     raw = call_llm(prompt)
     candidates = parse_llm_json(raw)
-    # The prompt asks for exactly one candidate tagged "A", but that's not
+    # The prompt asks for up to 3 candidates, all tagged "A", but that's not
     # guaranteed (same gap as the dashes one), enforce it mechanically.
-    if candidates:
-        first = candidates[0]
-        first["category"] = "A"
-        candidates = [first]
-    return candidates
+    for c in candidates[:3]:
+        c["category"] = "A"
+    return candidates[:3]
 
 
 # ── Main ──────────────────────────────────────────────────
@@ -538,12 +679,13 @@ def main():
         parser.print_help()
         return
 
-    base_url, token = load_config()
+    base_url, token, bilingual, _idle_minutes, _daily_batch_time = load_config()
     cfg = get_config(base_url, token)
     if cfg is None:
         print("Couldn't reach Ourfeed, check OURFEED_URL and that the server is running")
         sys.exit(1)
     channel_ids = [c["id"] for c in cfg.get("channels", [])]
+    username = get_username(base_url, token)
 
     if args.session:
         path = Path(args.session)
@@ -551,29 +693,35 @@ def main():
             print(f"File not found: {path}")
             return
         state = load_state()
-        candidates = process_session(path, state, base_url, token, channel_ids)
+        candidates = process_session(path, state, base_url, token, channel_ids, username)
         save_state(state)
     else:
         target_date = datetime.strptime(args.date, "%Y-%m-%d").date() if args.date else None
-        candidates = extract_digest(base_url, token, channel_ids, target_date=target_date)
+        candidates = extract_digest(base_url, token, channel_ids, username, target_date=target_date)
 
     if not candidates:
         print("\nNo candidates found")
         return
 
+    if bilingual:
+        print(f"\n{len(candidates)} candidate(s), adding Chinese translations...")
+        candidates = [make_bilingual(c) for c in candidates]
+
     print(f"\n{len(candidates)} candidate(s):")
     for c in candidates:
-        print(f"  [{c.get('category')}] {c.get('title')}")
+        print(f"  [{c.get('category')}] {_text_for_compare(c.get('title'))}")
 
     if args.dry_run:
         print("\n[dry-run] not posting")
+        for c in candidates:
+            print(f"  {_text_for_compare(c.get('content'))}")
         return
 
     posted, skipped_dup = 0, 0
     for c in candidates:
         dup_title = find_duplicate(base_url, token, c)
         if dup_title:
-            print(f"  Skipped (too similar to an existing entry): [{c.get('category')}] {c.get('title')} ~= \"{dup_title}\"")
+            print(f"  Skipped (too similar to an existing entry): [{c.get('category')}] {_text_for_compare(c.get('title'))} ~= \"{dup_title}\"")
             skipped_dup += 1
             continue
         if post_draft(base_url, token, c):
