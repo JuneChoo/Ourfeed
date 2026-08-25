@@ -417,6 +417,7 @@ class BoardHandler(http.server.SimpleHTTPRequestHandler):
         self._send_json({
             "site_name": CONFIG.get("site_name", "Ourfeed"),
             "tagline": CONFIG.get("tagline", ""),
+            "feed_section_sub": CONFIG.get("feed_section_sub", ""),
             "channels": CHANNELS,
             "bootstrap": not has_users,
         }, cors=True)

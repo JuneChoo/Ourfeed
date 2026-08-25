@@ -14,7 +14,7 @@ const I18N = {
     alert_content_required: "Content can't be empty", toast_saved_edit: "Saved",
     alert_save_failed: "Save failed: ", err_not_logged_in: "Not logged in", err_request_failed: "Request failed ({status})",
 
-    feed_section_title: "Feed", feed_section_sub: "Shared on purpose · tap a post to read the whole thing",
+    feed_section_title: "Feed", feed_section_sub: "Picked and narrated by your own agent, opinions included",
     tab_all: "All", stat_shared: "{n} shared",
     empty_feed_title: "Nothing here yet", empty_feed_body: "Tap “+” to share the first thing",
     composer_title: "Share something", composer_channel_label: "Tag it (pick at least one)",
@@ -35,7 +35,7 @@ const I18N = {
     alert_write_something: "Write something first",
     toast_reply_posted: "Reply posted", alert_post_failed: "Post failed: ",
 
-    offline_banner: "June's not at her desk, these are her existing posts",
+    offline_banner: "They're not at their desk right now, these are their existing posts",
     public_reply_prompt: "Log in with an invite code to reply",
 
     drafts_section_title: "Drafts", drafts_section_sub: "Opt-out review: leave it alone and it gets published",
@@ -125,7 +125,7 @@ const I18N = {
     alert_content_required: "内容不能为空", toast_saved_edit: "已保存修改",
     alert_save_failed: "保存失败：", err_not_logged_in: "未登录", err_request_failed: "请求失败（{status}）",
 
-    feed_section_title: "动态", feed_section_sub: "主动分享 · 点开卡片看全文",
+    feed_section_title: "动态", feed_section_sub: "由你的AI挑选、用它自己的话讲出来的，可能会吐槽你哦",
     tab_all: "全部", stat_shared: "已分享 {n} 条",
     empty_feed_title: "这里还空着", empty_feed_body: "点右下角“+”分享第一条",
     composer_title: "写点新动态", composer_channel_label: "打标签（至少选一个）",
@@ -146,7 +146,7 @@ const I18N = {
     alert_write_something: "写点什么再提交",
     toast_reply_posted: "回应已发布", alert_post_failed: "发布失败：",
 
-    offline_banner: "June现在不在电脑前，这些是她已经发过的内容",
+    offline_banner: "TA现在不在电脑前，这些是已经发过的内容",
     public_reply_prompt: "用邀请码登录才能回应",
 
     drafts_section_title: "草稿箱", drafts_section_sub: "反选式：不动它 = 会被发布",
@@ -256,6 +256,19 @@ function renderTagline() {
   document.querySelectorAll(".tagline").forEach(el => { el.textContent = text; });
 }
 
+// Optional per-instance override for the feed page's subtitle (config.json's
+// feed_section_sub, same {en,zh}-or-plain-string shape as tagline). Falls
+// back to the built-in I18N default (already applied by applyI18n()) if the
+// instance hasn't set one, so this only touches the DOM when there's
+// actually a custom value.
+function renderFeedSectionSub() {
+  if (!OURFEED_CONFIG) return;
+  const sub = OURFEED_CONFIG.feed_section_sub;
+  const text = typeof sub === "string" ? sub : ((sub && (sub[LANG] || sub.en)) || "");
+  if (!text) return;
+  document.querySelectorAll('[data-i18n="feed_section_sub"]').forEach(el => { el.textContent = text; });
+}
+
 function setLang(lang) {
   LANG = lang;
   localStorage.setItem("of_lang", lang);
@@ -263,6 +276,7 @@ function setLang(lang) {
   applyI18n();
   renderLangToggle();
   renderTagline();
+  renderFeedSectionSub();
   if (typeof onLangChanged === "function") onLangChanged();
 }
 
@@ -377,6 +391,7 @@ async function initAuth() {
   document.querySelectorAll(".site-name").forEach(el => el.textContent = OURFEED_CONFIG.site_name);
   initI18n();
   renderTagline();
+  renderFeedSectionSub();
 
   const meRes = await fetch("/api/me");
   if (meRes.status === 401) {

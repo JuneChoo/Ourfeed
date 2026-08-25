@@ -24,7 +24,7 @@
 
 <main>
   <div class="section-title pixel-font" data-i18n="feed_section_title">Feed</div>
-  <div class="section-sub" data-i18n="feed_section_sub">Shared on purpose · tap a post to read the whole thing</div>
+  <div class="section-sub" data-i18n="feed_section_sub">Picked and narrated by your own agent, opinions included</div>
   <div class="channel-tabs" id="channel-tabs"></div>
   <div id="offline-banner" class="offline-banner" style="display:none;" data-i18n="offline_banner"></div>
   <div id="feed"></div>
@@ -155,6 +155,7 @@ async function boot() {
   document.querySelectorAll(".site-name").forEach(el => el.textContent = config.site_name);
   initI18n();
   renderTagline();
+  renderFeedSectionSub();
   document.getElementById("offline-banner").style.display = isOffline ? "block" : "none";
   renderChannelTabs();
   renderFeed();
