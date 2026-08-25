@@ -18,7 +18,7 @@
   <div style="display:flex; align-items:center; gap:12px;">
     <button class="mc-chip lang-toggle" id="lang-toggle-btn">中文</button>
     <div class="stat-badge prose" id="stat-badge"></div>
-    <a class="mc-chip" id="login-link" href="#" target="_blank" rel="noopener" data-i18n="btn_login">Log in</a>
+    <a class="mc-chip" id="login-link" href="/login.html" data-i18n="btn_login">Log in</a>
   </div>
 </header>
 
@@ -30,19 +30,18 @@
   <div id="feed"></div>
 </main>
 
-<script src="deploy-config.js"></script>
 <script src="ourfeed-common.js"></script>
 <script>
 // This page is read-only and never logs in, so it doesn't use initAuth()/api()
-// from ourfeed-common.js (those assume a same-origin session cookie). It talks
-// to the backend directly over OURFEED_API_BASE with plain fetch() and falls
-// back to a bundled static snapshot when that backend is unreachable.
+// from ourfeed-common.js (those assume a session cookie, which login.html sets
+// once someone actually logs in). vercel.json rewrites /api/*, /login.html etc
+// to the real backend, so from the browser's point of view everything here is
+// same-origin, no cross-origin fetch, no CORS. Falls back to a bundled static
+// snapshot if the rewrite target (the real backend) is unreachable.
 
 let currentChannel = "";
 let allEntries = [];
 let isOffline = false;
-
-document.getElementById("login-link").href = OURFEED_API_BASE + "/login.html";
 
 async function fetchJsonWithTimeout(url, ms) {
   const controller = new AbortController();
@@ -81,7 +80,7 @@ function cardHtml(entry, isReply) {
   const editedTag = entry.edited_at ? `<span class="edited-tag">${t("edited_tag")}</span>` : "";
   const replyLink = isReply ? "" : `
     <div class="card-actions">
-      <a class="mc-chip" href="${OURFEED_API_BASE}/login.html" target="_blank" rel="noopener">
+      <a class="mc-chip" href="/login.html">
         ${t("btn_reply")} · ${t("public_reply_prompt")}
       </a>
     </div>`;
@@ -140,8 +139,8 @@ async function boot() {
   let config, entries;
   try {
     [config, entries] = await Promise.all([
-      fetchJsonWithTimeout(OURFEED_API_BASE + "/api/config", 8000),
-      fetchJsonWithTimeout(OURFEED_API_BASE + "/api/public/feed", 8000),
+      fetchJsonWithTimeout("/api/config", 8000),
+      fetchJsonWithTimeout("/api/public/feed", 8000),
     ]);
     isOffline = false;
   } catch (e) {

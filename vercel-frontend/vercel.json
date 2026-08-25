@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://ourfeed-node.tailf567fb.ts.net/api/:path*" },
+    { "source": "/login.html", "destination": "https://ourfeed-node.tailf567fb.ts.net/login.html" },
+    { "source": "/register.html", "destination": "https://ourfeed-node.tailf567fb.ts.net/register.html" },
+    { "source": "/feed.html", "destination": "https://ourfeed-node.tailf567fb.ts.net/feed.html" },
+    { "source": "/review.html", "destination": "https://ourfeed-node.tailf567fb.ts.net/review.html" },
+    { "source": "/admin.html", "destination": "https://ourfeed-node.tailf567fb.ts.net/admin.html" },
+    { "source": "/automation.html", "destination": "https://ourfeed-node.tailf567fb.ts.net/automation.html" }
+  ]
+}
